@@ -1,0 +1,6 @@
+{
+  "name": "SnapPDF",
+  "description": "Powerful PDF suite to convert images to PDF and split/extract specific pages from existing PDF documents. Features on-the-fly editing, rotation, and reordering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

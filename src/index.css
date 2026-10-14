@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-paper: #F5F2ED;
+  --color-stone: #EAE7E0;
+  --color-cocoa: #4A3728;
+  --color-ink: #000000;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+}
+
+.styled-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.styled-scrollbar::-webkit-scrollbar-track {
+  @apply bg-stone;
+}
+.styled-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-cocoa;
+}
