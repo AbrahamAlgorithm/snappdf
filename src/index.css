@@ -1,27 +1,158 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  
-  --color-paper: #F5F2ED;
-  --color-stone: #EAE7E0;
-  --color-cocoa: #4A3728;
-  --color-ink: #000000;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-canvas: #ffffff;  /* page background; also text on ink/brand fills */
+  --color-subtle: #f4f4f5;  /* recessed: workspace canvas, inputs, soft cards */
+  --color-card: #ffffff;    /* raised: cards, bars, modals */
+  --color-line: #e7e7e9;    /* hairline borders */
+  --color-ink: #0b0b0c;     /* foreground */
+  --color-brand: #0b0b0c;   /* primary buttons and emphasis */
+  --color-lime: #52ff00;    /* highlight; always paired with dark text */
+  --color-paper: #ffffff;   /* real document paper: PDF pages, signature pad */
+}
+
+/* Re-scope the palette for dark islands (the workspace side panel, floating toolbars, footer).
+   Utilities read these variables, so everything inside flips without per-element classes. */
+.theme-dark {
+  --color-canvas: #141416;
+  --color-subtle: #0d0d0f;
+  --color-card: #1f1f22;
+  --color-line: #2e2e33;
+  --color-ink: #f2f2f3;
+  --color-brand: #f2f2f3;
+  color-scheme: dark;
+  color: var(--color-ink);
+}
+
+.theme-light {
+  --color-canvas: #ffffff;
+  --color-subtle: #f4f4f5;
+  --color-card: #ffffff;
+  --color-line: #e7e7e9;
+  --color-ink: #0b0b0c;
+  --color-brand: #0b0b0c;
+  color-scheme: light;
+  color: var(--color-ink);
 }
 
 @layer base {
+  html,
   body {
-    @apply bg-paper text-ink font-sans antialiased;
+    /* Stops the rubber-band bounce past the top/bottom edge, which would otherwise reveal the
+       body's own background (white) behind the dark footer when overscrolling. */
+    overscroll-behavior-y: none;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-lime text-black;
+  }
+
+  /* Soft corners on every control; utilities like rounded-full still win. */
+  button,
+  select,
+  textarea,
+  input:not([type='range']):not([type='checkbox']):not([type='radio']) {
+    border-radius: 0.625rem;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Landing headline slots (adapted from mobbin.com's hero). A slot stands in for the space between
+   two words, opens once its line has landed, then pops a tile in. Sizes come from CSS variables
+   set on the h1, so everything scales with the headline's font size. */
+@keyframes hero-slot-open {
+  from {
+    width: var(--slot-closed);
+  }
+  to {
+    width: var(--slot-open);
+  }
+}
+
+@keyframes hero-slot-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.72);
+    filter: blur(7px);
+  }
+  45% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.02);
+    filter: blur(0);
+  }
+  68% {
+    transform: translateX(-50%) scale(0.995);
+  }
+  85% {
+    transform: translateX(-50%) scale(1.001);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    filter: blur(0);
+  }
+}
+
+.hero-slot {
+  position: relative;
+  display: inline-block;
+  height: 0;
+  width: var(--slot-closed);
+  animation: hero-slot-open 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-slot-inner {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-1 * var(--icon-drop));
+  width: var(--icon-size);
+  height: var(--icon-size);
+  transform: translateX(-50%);
+  animation: hero-slot-in 440ms ease-out both;
+  cursor: pointer;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slot,
+  .hero-slot-inner {
+    animation: none;
+  }
+  .hero-slot {
+    width: var(--slot-open);
   }
 }
 
 .styled-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .styled-scrollbar::-webkit-scrollbar-track {
-  @apply bg-stone;
+  background: transparent;
 }
 .styled-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-cocoa;
+  @apply bg-line rounded-full;
+}
+.styled-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink/30;
 }

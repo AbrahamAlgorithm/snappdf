@@ -707,10 +707,10 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
         <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-12">
           <div 
             onClick={() => docFileInputRef.current?.click()}
-            className="w-full max-w-2xl border-2 border-dashed border-ink/30 hover:border-cocoa hover:bg-white/60 transition-all p-10 md:p-14 text-center cursor-pointer bg-white/40 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center group"
+            className="w-full max-w-2xl border-2 border-dashed border-ink/30 hover:border-brand hover:bg-card/60 transition-all p-10 md:p-14 text-center cursor-pointer bg-card/40 flex flex-col items-center group rounded-2xl"
           >
-            <div className="w-20 h-20 bg-stone border-2 border-ink flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <FileUp className="text-cocoa" size={40} />
+            <div className="w-20 h-20 bg-subtle border border-line flex items-center justify-center mb-6 group-hover:scale-105 transition-transform rounded-lg">
+              <FileUp className="text-brand" size={40} />
             </div>
 
             <h2 className="text-lg md:text-xl font-black uppercase tracking-tight mb-2">
@@ -727,7 +727,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                   e.stopPropagation();
                   docFileInputRef.current?.click();
                 }}
-                className="px-6 h-12 bg-ink text-paper font-bold uppercase text-[10px] tracking-widest hover:bg-cocoa transition-colors flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                className="px-6 h-12 bg-ink text-canvas font-bold uppercase text-[10px] tracking-widest hover:bg-brand/80 transition-colors flex items-center gap-2"
               >
                 <FileText size={16} />
                 Browse Document
@@ -739,14 +739,14 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                   e.stopPropagation();
                   handleLoadSampleContract();
                 }}
-                className="px-6 h-12 bg-white border-2 border-ink font-bold uppercase text-[10px] tracking-widest hover:bg-stone transition-colors flex items-center gap-2"
+                className="px-6 h-12 bg-card border border-line font-bold uppercase text-[10px] tracking-widest hover:bg-subtle transition-colors flex items-center gap-2 rounded-lg"
               >
-                <Sparkles size={16} className="text-cocoa" />
+                <Sparkles size={16} className="text-brand" />
                 Try Sample Contract
               </button>
             </div>
 
-            <p className="text-[10px] font-bold uppercase tracking-wider text-cocoa mt-6 opacity-80">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-brand mt-6 opacity-80">
               Supports PDF, PNG, JPG, HEIC, TXT
             </p>
           </div>
@@ -755,11 +755,11 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
         /* 2. Document Loaded Workspace */
         <div className="flex-1 flex flex-col min-h-0 relative">
           {/* Top Control Bar */}
-          <div className="bg-white border-b-2 border-ink p-3 md:p-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
+          <div className="bg-card border-b-2 border-line p-3 md:p-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
             {/* Left: Document Info & Change */}
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-stone border border-ink/20">
-                <FileText size={18} className="text-cocoa" />
+              <div className="p-2 bg-subtle border border-ink/20 rounded-lg">
+                <FileText size={18} className="text-brand" />
               </div>
               <div className="max-w-[150px] sm:max-w-xs truncate">
                 <h4 className="text-xs font-black uppercase tracking-tight truncate">{docName}</h4>
@@ -769,7 +769,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
               </div>
               <button 
                 onClick={() => docFileInputRef.current?.click()}
-                className="text-[9px] font-black uppercase underline underline-offset-4 hover:text-cocoa transition-colors ml-1 hidden sm:inline-block"
+                className="text-[9px] font-black uppercase underline underline-offset-4 hover:text-brand transition-colors ml-1 hidden sm:inline-block"
               >
                 Replace File
               </button>
@@ -780,7 +780,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
               <button
                 id="upload-signature-btn"
                 onClick={handleUploadSignatureClick}
-                className="h-10 md:h-11 px-4 md:px-5 bg-cocoa text-paper font-black uppercase text-[10px] md:text-xs tracking-widest hover:bg-ink transition-all flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none"
+                className="h-10 md:h-11 px-4 md:px-5 bg-brand text-canvas font-black uppercase text-[10px] md:text-xs tracking-widest hover:bg-ink/80 transition-all flex items-center gap-2 active:translate-y-0.5"
                 title="Upload image or transparent signature"
               >
                 <Upload size={16} />
@@ -792,10 +792,10 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                   setIsDrawModalOpen(true);
                   setTimeout(() => clearCanvas(), 50);
                 }}
-                className="h-10 md:h-11 px-3 md:px-4 bg-stone border-2 border-ink font-bold uppercase text-[10px] tracking-widest hover:bg-white transition-colors flex items-center gap-2"
+                className="h-10 md:h-11 px-3 md:px-4 bg-subtle border border-line font-bold uppercase text-[10px] tracking-widest hover:bg-card transition-colors flex items-center gap-2 rounded-lg"
                 title="Draw your signature directly on screen"
               >
-                <PenTool size={15} className="text-cocoa" />
+                <PenTool size={15} className="text-brand" />
                 <span className="hidden sm:inline">Draw Signature</span>
               </button>
             </div>
@@ -803,14 +803,14 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
             {/* Right: Page Navigation, Zoom, and Download */}
             <div className="flex items-center gap-2">
               {pageCount > 1 && (
-                <div className="flex items-center bg-stone border border-ink p-0.5 text-xs font-bold">
+                <div className="flex items-center bg-subtle border border-line p-0.5 text-xs font-bold rounded-md">
                   <button 
                     onClick={() => {
                       setSelectedSigId(null);
                       setCurrentPage(p => Math.max(0, p - 1));
                     }}
                     disabled={currentPage === 0}
-                    className="p-1 hover:bg-white disabled:opacity-20 transition-colors"
+                    className="p-1 hover:bg-card disabled:opacity-20 transition-colors"
                     title="Previous Page"
                   >
                     <ChevronLeft size={16} />
@@ -824,7 +824,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                       setCurrentPage(p => Math.min(pageCount - 1, p + 1));
                     }}
                     disabled={currentPage >= pageCount - 1}
-                    className="p-1 hover:bg-white disabled:opacity-20 transition-colors"
+                    className="p-1 hover:bg-card disabled:opacity-20 transition-colors"
                     title="Next Page"
                   >
                     <ChevronRight size={16} />
@@ -833,10 +833,10 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
               )}
 
               {/* Zoom Controls */}
-              <div className="hidden lg:flex items-center bg-stone border border-ink p-0.5">
+              <div className="hidden lg:flex items-center bg-subtle border border-line p-0.5 rounded-md">
                 <button 
                   onClick={() => setZoomLevel(z => Math.max(70, z - 10))}
-                  className="p-1 hover:bg-white transition-colors"
+                  className="p-1 hover:bg-card transition-colors"
                   title="Zoom Out"
                 >
                   <ZoomOut size={14} />
@@ -844,7 +844,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                 <span className="text-[9px] font-black uppercase px-1.5 min-w-[40px] text-center">{zoomLevel}%</span>
                 <button 
                   onClick={() => setZoomLevel(z => Math.min(150, z + 10))}
-                  className="p-1 hover:bg-white transition-colors"
+                  className="p-1 hover:bg-card transition-colors"
                   title="Zoom In"
                 >
                   <ZoomIn size={14} />
@@ -855,7 +855,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
               <button
                 onClick={handleInitiateDownload}
                 disabled={isDownloading}
-                className="h-10 px-4 bg-ink text-paper font-black uppercase text-[10px] tracking-widest hover:bg-cocoa transition-all flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ml-1"
+                className="h-10 px-4 bg-ink text-canvas font-black uppercase text-[10px] tracking-widest hover:bg-brand/80 transition-all flex items-center gap-1.5 ml-1"
                 title="Download Document with Custom Name"
               >
                 <Download size={14} />
@@ -868,11 +868,11 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
           {/* Clicking anywhere on the workspace backdrop deselects active signature */}
           <div 
             onClick={() => setSelectedSigId(null)}
-            className="flex-1 overflow-auto p-4 md:p-8 flex items-center justify-center bg-stone/70 relative select-none cursor-default"
+            className="flex-1 overflow-auto p-4 md:p-8 flex items-center justify-center bg-subtle/70 relative select-none cursor-default"
           >
             {isLoadingDoc ? (
               <div className="flex flex-col items-center gap-3">
-                <RefreshCw className="animate-spin text-cocoa" size={36} />
+                <RefreshCw className="animate-spin text-brand" size={36} />
                 <p className="text-xs font-black uppercase tracking-widest">Loading Document Pages...</p>
               </div>
             ) : renderedPageUrl ? (
@@ -888,7 +888,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                     // Deselect when clicking directly on page background
                     setSelectedSigId(null);
                   }}
-                  className="relative bg-white shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] border-2 border-ink overflow-visible"
+                  className="relative bg-paper shadow-xl shadow-black/10 ring-1 ring-ink/10 overflow-visible"
                   style={{
                     aspectRatio: docAspect ? `${docAspect}` : '1 / 1.414',
                   }}
@@ -910,8 +910,8 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                       }}
                       className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none"
                     >
-                      <div className="bg-white/95 border-2 border-dashed border-cocoa p-4 text-center max-w-sm pointer-events-auto cursor-pointer hover:bg-stone transition-all shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                        <Upload size={24} className="mx-auto mb-2 text-cocoa animate-bounce" />
+                      <div className="bg-card/95 border border-dashed border-brand rounded-xl p-4 text-center max-w-sm pointer-events-auto cursor-pointer hover:bg-card transition-all shadow-lg shadow-black/10">
+                        <Upload size={24} className="mx-auto mb-2 text-brand animate-bounce" />
                         <h5 className="text-[11px] font-black uppercase tracking-widest text-ink">Click to Add Signature Here</h5>
                         <p className="text-[9px] uppercase font-bold text-ink/60 mt-1">Upload an image file or use Draw Signature</p>
                       </div>
@@ -946,8 +946,8 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                         className={cn(
                           "group transition-shadow duration-100 flex items-center justify-center",
                           isSelected 
-                            ? "ring-2 ring-cocoa shadow-[6px_6px_0px_0px_rgba(0,0,0,0.85)] z-30" 
-                            : "hover:ring-2 hover:ring-cocoa/60 z-20"
+                            ? "ring-2 ring-brand z-30" 
+                            : "hover:ring-2 hover:ring-brand/60 z-20"
                         )}
                         title={isSelected ? "Drag to move signature" : "Click to select signature"}
                       >
@@ -964,14 +964,14 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
 
                         {/* Unselected subtle hover indicator */}
                         {!isSelected && (
-                          <div className="absolute inset-0 border border-ink/20 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
+                          <div className="absolute inset-0 border border-black/20 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
                         )}
 
                         {/* Selection Frame, 4 Corner Handles, Rotation Stem, and Floating Mini-Toolbar */}
                         {isSelected && (
                           <>
                             {/* Dashed selection border */}
-                            <div className="absolute inset-0 border-2 border-dashed border-cocoa pointer-events-none" />
+                            <div className="absolute inset-0 border-2 border-dashed border-brand pointer-events-none" />
 
                             {/* --- 1. ROTATE STEM & HANDLE --- */}
                             <div 
@@ -979,13 +979,13 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                               className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing group/rot z-50 select-none"
                               title="Drag to rotate signature (Hold Shift for 15° snap)"
                             >
-                              <div className="w-5 h-5 bg-cocoa text-paper rounded-full border-2 border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center hover:scale-125 transition-transform">
+                              <div className="w-5 h-5 bg-brand text-canvas rounded-full border-2 border-white flex items-center justify-center hover:scale-125 transition-transform">
                                 <RotateCw size={11} className="pointer-events-none" />
                               </div>
-                              <div className="w-[2px] h-2 bg-cocoa" />
+                              <div className="w-[2px] h-2 bg-brand" />
                               {/* Angle readout tooltip when rotating */}
                               {isRotating && rotationPreviewAngle !== null && (
-                                <div className="absolute -top-6 bg-ink text-paper text-[8px] font-black px-1.5 py-0.5 rounded shadow whitespace-nowrap">
+                                <div className="absolute -top-6 bg-ink text-canvas text-[8px] font-black px-1.5 py-0.5 rounded shadow whitespace-nowrap">
                                   {rotationPreviewAngle}°
                                 </div>
                               )}
@@ -995,31 +995,31 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                             {/* NW: Top-Left */}
                             <div 
                               onPointerDown={(e) => handleResizePointerDown(e, sig, 'nw')}
-                              className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-cocoa border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-40"
+                              className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-brand border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-40 rounded-lg"
                               title="Drag to resize (Top-Left)"
                             />
 
                             {/* NE: Top-Right */}
                             <div 
                               onPointerDown={(e) => handleResizePointerDown(e, sig, 'ne')}
-                              className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-cocoa border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-40"
+                              className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-brand border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-40 rounded-lg"
                               title="Drag to resize (Top-Right)"
                             />
 
                             {/* SW: Bottom-Left */}
                             <div 
                               onPointerDown={(e) => handleResizePointerDown(e, sig, 'sw')}
-                              className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-cocoa border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-40"
+                              className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-brand border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-40 rounded-lg"
                               title="Drag to resize (Bottom-Left)"
                             />
 
                             {/* SE: Bottom-Right */}
                             <div 
                               onPointerDown={(e) => handleResizePointerDown(e, sig, 'se')}
-                              className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-cocoa border-2 border-white cursor-nwse-resize flex items-center justify-center shadow-md z-40 hover:scale-125 transition-transform"
+                              className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-brand border-2 border-white cursor-nwse-resize flex items-center justify-center shadow-md z-40 hover:scale-125 transition-transform rounded-lg"
                               title="Drag to resize (Bottom-Right)"
                             >
-                              <Maximize2 size={8} className="text-white pointer-events-none" />
+                              <Maximize2 size={8} className="text-canvas pointer-events-none" />
                             </div>
 
                             {/* --- 3. FLOATING ACTION TOOLBAR --- */}
@@ -1028,7 +1028,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                               onPointerDown={(e) => e.stopPropagation()} 
                               style={{ transform: `rotate(-${rotAngle}deg)` }}
                               className={cn(
-                                "absolute left-1/2 -translate-x-1/2 bg-ink text-paper px-2 py-1 flex items-center gap-1.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] whitespace-nowrap z-50 border border-white/20 select-none",
+                                "theme-dark absolute left-1/2 -translate-x-1/2 bg-card text-ink px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-lg shadow-black/10 whitespace-nowrap z-50 border border-line select-none",
                                 isNearTop ? "-bottom-12" : "-top-12"
                               )}
                             >
@@ -1036,35 +1036,35 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                               <button
                                 onClick={() => handleScaleStep(sig.id, -4)}
                                 title="Scale down (-4%)"
-                                className="p-0.5 hover:text-cocoa text-paper/80 transition-colors"
+                                className="p-0.5 hover:text-brand text-ink/80 transition-colors"
                               >
                                 <ZoomOut size={12} />
                               </button>
-                              <span className="text-[8px] font-bold uppercase tracking-wider text-paper/90 px-0.5">
+                              <span className="text-[8px] font-bold uppercase tracking-wider text-ink/90 px-0.5">
                                 {Math.round(sig.widthPercent)}% W
                               </span>
                               <button
                                 onClick={() => handleScaleStep(sig.id, 4)}
                                 title="Scale up (+4%)"
-                                className="p-0.5 hover:text-cocoa text-paper/80 transition-colors"
+                                className="p-0.5 hover:text-brand text-ink/80 transition-colors"
                               >
                                 <ZoomIn size={12} />
                               </button>
 
-                              <div className="h-3 w-[1px] bg-paper/20 mx-0.5" />
+                              <div className="h-3 w-[1px] bg-ink/15 mx-0.5" />
 
                               {/* Rotate 90° CCW / CW */}
                               <button
                                 onClick={() => handleRotateStep(sig.id, -90)}
                                 title="Rotate 90° Counter-Clockwise"
-                                className="p-1 hover:text-cocoa text-paper/80 transition-colors"
+                                className="p-1 hover:text-brand text-ink/80 transition-colors"
                               >
                                 <RotateCcw size={12} />
                               </button>
                               <button
                                 onClick={() => handleRotateStep(sig.id, 90)}
                                 title="Rotate 90° Clockwise (R)"
-                                className="p-1 hover:text-cocoa text-paper/80 transition-colors"
+                                className="p-1 hover:text-brand text-ink/80 transition-colors"
                               >
                                 <RotateCw size={12} />
                               </button>
@@ -1074,13 +1074,13 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                                 <button
                                   onClick={() => handleResetRotation(sig.id)}
                                   title="Reset rotation to 0°"
-                                  className="px-1 py-0.5 text-[8px] font-black uppercase bg-amber-400 text-ink rounded hover:bg-amber-300 transition-colors"
+                                  className="px-1 py-0.5 text-[8px] font-black uppercase bg-amber-400 text-canvas rounded hover:bg-amber-300 transition-colors"
                                 >
                                   {rotAngle}° (Reset)
                                 </button>
                               )}
 
-                              <div className="h-3 w-[1px] bg-paper/20 mx-0.5" />
+                              <div className="h-3 w-[1px] bg-ink/15 mx-0.5" />
 
                               {/* Clear Background Toggle */}
                               <button
@@ -1088,7 +1088,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                                 title="Toggle Transparent White Background"
                                 className={cn(
                                   "px-1 py-0.5 text-[8px] uppercase font-bold transition-colors",
-                                  sig.removeWhiteBg ? "text-amber-400 font-black" : "text-paper/70 hover:text-white"
+                                  sig.removeWhiteBg ? "text-amber-400 font-black" : "text-ink/70 hover:text-ink"
                                 )}
                               >
                                 Clear BG
@@ -1098,7 +1098,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                               <button
                                 onClick={() => duplicateSignature(sig)}
                                 title="Duplicate Signature"
-                                className="p-1 hover:text-cocoa text-paper/80 transition-colors"
+                                className="p-1 hover:text-brand text-ink/80 transition-colors"
                               >
                                 <Copy size={12} />
                               </button>
@@ -1112,7 +1112,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                                 <Trash2 size={12} />
                               </button>
 
-                              <div className="h-3 w-[1px] bg-paper/20 mx-0.5" />
+                              <div className="h-3 w-[1px] bg-ink/15 mx-0.5" />
 
                               {/* DESELECT / DONE BUTTON */}
                               <button
@@ -1121,7 +1121,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                                   setSelectedSigId(null);
                                 }}
                                 title="Unselect Signature (Esc)"
-                                className="px-1.5 py-0.5 bg-paper/20 hover:bg-white hover:text-ink text-paper rounded text-[8px] font-bold uppercase flex items-center gap-0.5 transition-colors"
+                                className="px-1.5 py-0.5 bg-ink/15 hover:bg-ink/80 hover:text-canvas text-ink rounded text-[8px] font-bold uppercase flex items-center gap-0.5 transition-colors"
                               >
                                 <Check size={10} />
                                 <span>Done</span>
@@ -1137,7 +1137,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                 {/* Page indicator below */}
                 <div className="mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink/60 px-2">
                   <span>Page {currentPage + 1} of {pageCount}</span>
-                  <span className="text-cocoa">
+                  <span className="text-brand">
                     {activePageSignatures.length} {activePageSignatures.length === 1 ? 'Signature' : 'Signatures'} on this page
                   </span>
                 </div>
@@ -1151,7 +1151,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 15 }}
-                  className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink/95 backdrop-blur text-paper border-2 border-ink px-4 py-2.5 flex items-center gap-3 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] z-40 text-[10px] font-bold uppercase tracking-wider"
+                  className="theme-dark fixed bottom-6 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur text-ink border border-line rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-xl shadow-black/10 z-40 text-[10px] font-bold uppercase tracking-wider"
                 >
                   <span className="flex items-center gap-1.5 text-amber-400 font-black">
                     <Sliders size={13} />
@@ -1163,7 +1163,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleRotateStep(activeSignature.id, 90)}
-                      className="px-2 py-0.5 bg-stone/20 hover:bg-stone/40 text-paper text-[9px] rounded flex items-center gap-1"
+                      className="px-2 py-0.5 bg-ink/10 hover:bg-ink/20 text-ink text-[9px] rounded flex items-center gap-1"
                       title="Rotate 90 degrees (R)"
                     >
                       <RotateCw size={11} />
@@ -1172,15 +1172,15 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
 
                     <button
                       onClick={() => handleScaleStep(activeSignature.id, -4)}
-                      className="px-1.5 py-0.5 bg-stone/20 hover:bg-stone/40 text-paper text-[9px] rounded"
+                      className="px-1.5 py-0.5 bg-ink/10 hover:bg-ink/20 text-ink text-[9px] rounded"
                       title="Scale down"
                     >
                       -
                     </button>
-                    <span className="text-[9px] text-paper/80">{Math.round(activeSignature.widthPercent)}%</span>
+                    <span className="text-[9px] text-ink/80">{Math.round(activeSignature.widthPercent)}%</span>
                     <button
                       onClick={() => handleScaleStep(activeSignature.id, 4)}
-                      className="px-1.5 py-0.5 bg-stone/20 hover:bg-stone/40 text-paper text-[9px] rounded"
+                      className="px-1.5 py-0.5 bg-ink/10 hover:bg-ink/20 text-ink text-[9px] rounded"
                       title="Scale up"
                     >
                       +
@@ -1189,13 +1189,13 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
 
                   <span className="opacity-30 hidden md:inline">|</span>
 
-                  <span className="text-[9px] text-paper/70 font-medium hidden md:inline">
+                  <span className="text-[9px] text-ink/70 font-medium hidden md:inline">
                     Drag corners to resize • Top handle to rotate • Esc to unselect
                   </span>
 
                   <button 
                     onClick={() => setSelectedSigId(null)}
-                    className="ml-2 px-3 py-1 bg-cocoa text-paper text-[9px] font-black uppercase hover:bg-white hover:text-ink transition-colors flex items-center gap-1 shadow-sm active:translate-y-0.5"
+                    className="ml-2 px-3 py-1 bg-brand text-canvas text-[9px] font-black uppercase rounded-md hover:bg-ink/80 hover:text-canvas transition-colors flex items-center gap-1 shadow-sm active:translate-y-0.5"
                   >
                     <Check size={12} />
                     Unselect (Esc)
@@ -1214,7 +1214,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/80 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
             onClick={() => setIsDrawModalOpen(false)}
           >
             <motion.div
@@ -1222,30 +1222,30 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white border-2 border-ink w-full max-w-lg shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] overflow-hidden flex flex-col"
+              className="bg-card border border-line w-full max-w-lg shadow-xl shadow-black/10 overflow-hidden flex flex-col rounded-2xl"
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-ink flex justify-between items-center bg-stone">
+              <div className="px-6 py-4 border-b border-line flex justify-between items-center bg-subtle">
                 <div className="flex items-center gap-2">
-                  <PenTool className="text-cocoa" size={18} />
+                  <PenTool className="text-brand" size={18} />
                   <h3 className="text-xs font-black uppercase tracking-[0.2em]">Draw Your Signature</h3>
                 </div>
                 <button 
                   onClick={() => setIsDrawModalOpen(false)}
-                  className="p-1 hover:bg-ink hover:text-paper transition-colors border border-ink bg-white"
+                  className="p-1 hover:bg-ink/80 hover:text-canvas transition-colors border border-line bg-card rounded-md"
                 >
                   <X size={16} />
                 </button>
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 space-y-4 bg-paper">
+              <div className="p-6 space-y-4 bg-canvas">
                 <p className="text-[10px] uppercase font-bold text-ink/70">
                   Use your finger, mouse, or stylus to write your signature below:
                 </p>
 
                 {/* Drawing Canvas */}
-                <div className="border-2 border-ink bg-white relative shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+                <div className="border border-line bg-paper relative rounded-lg overflow-hidden">
                   <canvas
                     ref={canvasRef}
                     width={700}
@@ -1257,10 +1257,10 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                     onTouchStart={startDrawing}
                     onTouchMove={draw}
                     onTouchEnd={stopDrawing}
-                    className="w-full h-56 cursor-crosshair touch-none bg-white block"
+                    className="w-full h-56 cursor-crosshair touch-none bg-paper block"
                   />
                   {/* Baseline guide */}
-                  <div className="absolute bottom-12 left-8 right-8 border-b border-dashed border-ink/20 pointer-events-none flex justify-between text-[9px] font-bold uppercase text-ink/30 pb-1">
+                  <div className="absolute bottom-12 left-8 right-8 border-b border-dashed border-black/20 pointer-events-none flex justify-between text-[9px] font-bold uppercase text-black/40 pb-1">
                     <span>Sign on this line</span>
                     <span>X</span>
                   </div>
@@ -1277,7 +1277,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                         style={{ backgroundColor: c }}
                         className={cn(
                           "w-6 h-6 rounded-full border-2 transition-all",
-                          penColor === c ? "border-cocoa scale-110 shadow-sm" : "border-ink/20"
+                          penColor === c ? "border-brand scale-110 shadow-sm" : "border-ink/20"
                         )}
                       />
                     ))}
@@ -1290,8 +1290,8 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                         key={w}
                         onClick={() => setPenWidth(w)}
                         className={cn(
-                          "px-2 py-0.5 text-[9px] font-bold border transition-colors",
-                          penWidth === w ? "bg-ink text-paper border-ink" : "bg-stone border-ink/20"
+                          "px-2 py-0.5 text-[9px] font-bold border transition-colors rounded-md",
+                          penWidth === w ? "bg-ink text-canvas border-line" : "bg-subtle border-ink/20"
                         )}
                       >
                         {w === 2 ? 'Fine' : w === 3 ? 'Medium' : 'Thick'}
@@ -1311,14 +1311,14 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                 <div className="flex gap-3 pt-4 border-t border-ink/10">
                   <button
                     onClick={() => setIsDrawModalOpen(false)}
-                    className="px-4 h-11 border border-ink font-bold uppercase text-[10px] tracking-widest hover:bg-stone transition-colors"
+                    className="px-4 h-11 border border-line font-bold uppercase text-[10px] tracking-widest hover:bg-subtle transition-colors rounded-lg"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleInsertDrawnSignature}
                     disabled={!hasDrawnSomething}
-                    className="flex-1 h-11 bg-cocoa text-paper font-bold uppercase text-[10px] tracking-widest hover:bg-ink transition-all flex items-center justify-center gap-2 disabled:opacity-40 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    className="flex-1 h-11 bg-brand text-canvas font-bold uppercase text-[10px] tracking-widest hover:bg-ink/80 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
                   >
                     <Check size={16} />
                     Insert Signature
