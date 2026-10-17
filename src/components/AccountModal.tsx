@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { GitHubStarButton } from '@/src/components/GitHubStarButton';
-import { toolHref } from '@/src/lib/router';
+import { APP_HREF } from '@/src/lib/router';
 
 const PERKS = ['Saved documents and history', 'Reusable signatures', 'Pick up on any device'];
 
@@ -66,7 +66,7 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
             </ul>
 
             <a
-              href={toolHref('image-to-pdf')}
+              href={APP_HREF}
               onClick={onClose}
               className="mt-6 flex h-11 items-center justify-center rounded-xl bg-ink text-[14px] font-medium text-canvas transition-colors hover:bg-ink/85"
             >

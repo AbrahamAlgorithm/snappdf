@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeftRight, ArrowRight, Check, FileImage, GripVertical, Minus, PenTool, Plus, RotateCw, Scissors, ShieldCheck } from 'lucide-react';
 import { LogoMark } from '@/src/components/brand';
-import { toolHref } from '@/src/lib/router';
+import { APP_HREF, toolHref } from '@/src/lib/router';
 import { cn } from '@/src/lib/utils';
 import { pad, SplitText, useInView, useTicker } from '@/src/pages/landing/motion';
 
@@ -19,6 +19,7 @@ const TOOLS = [
     points: ['HEIC photos converted for you', 'Drag to reorder, rotate or crop any page', 'Pick the quality and the file size'],
     file: 'receipts-march.pdf',
     cta: 'Turn images into a PDF',
+    href: toolHref('image-to-pdf'),
   },
   {
     id: 'sign-pdf',
@@ -29,6 +30,7 @@ const TOOLS = [
     points: ['Draw with a finger, mouse or trackpad', 'Resize, rotate and clear white backgrounds', 'Add as many signatures as you need'],
     file: 'tenancy-agreement.pdf',
     cta: 'Sign a document',
+    href: toolHref('sign-pdf'),
   },
   {
     id: 'pdf-splitter',
@@ -39,6 +41,7 @@ const TOOLS = [
     points: ['Pick pages one by one or as a range', 'Full-size preview of any page', 'Pages copied as they are, no quality loss'],
     file: 'statement-q1.pdf',
     cta: 'Split a PDF',
+    href: toolHref('pdf-splitter'),
   },
   {
     id: 'converter',
@@ -49,6 +52,7 @@ const TOOLS = [
     points: ['PDF text into an editable Word file', 'CSV or JSON to Excel, JSON to CSV', 'Text files into tidy PDFs'],
     file: 'q3-report.pdf',
     cta: 'Convert a file',
+    href: APP_HREF,
   },
 ] as const;
 
@@ -109,7 +113,7 @@ function Done({ title, note }: { title: string; note: string }) {
 
 type Art = 'receipt' | 'slip' | 'screenshot' | 'invoice' | 'ticket';
 
-function Thumb({ art, desk, r = 0 }: { art: Art; desk: string; r?: number }) {
+export function Thumb({ art, desk, r = 0 }: { art: Art; desk: string; r?: number }) {
   const style = { '--desk': desk, '--r': `${r}deg` } as CSSProperties;
   if (art === 'screenshot') {
     return (
@@ -172,7 +176,7 @@ function Thumb({ art, desk, r = 0 }: { art: Art; desk: string; r?: number }) {
   );
 }
 
-const PHOTOS: { name: string; size: string; art: Art; desk: string; r?: number; heic?: number }[] = [
+export const PHOTOS: { name: string; size: string; art: Art; desk: string; r?: number; heic?: number }[] = [
   { name: 'IMG_2041.HEIC', size: '2.1 MB', art: 'receipt', desk: 'linear-gradient(135deg,#c9a98a,#a88466)', r: -5, heic: 0 },
   { name: 'IMG_2042.HEIC', size: '1.8 MB', art: 'slip', desk: 'linear-gradient(135deg,#8e98a4,#6c7784)', r: 4, heic: 1 },
   { name: 'Screenshot 09.41.png', size: '640 KB', art: 'screenshot', desk: '#eceef2' },
@@ -631,7 +635,7 @@ export function ToolShowcase() {
             })}
           </div>
           <a
-            href={toolHref(tool.id)}
+            href={tool.href}
             className="mt-7 inline-flex h-12 items-center gap-2 rounded-xl bg-ink px-6 text-[15px] font-medium text-canvas transition-colors hover:bg-ink/85"
           >
             {tool.cta}

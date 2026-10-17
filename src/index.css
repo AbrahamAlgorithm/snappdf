@@ -134,9 +134,99 @@
   user-select: none;
 }
 
+/* "Zero paywalls." gets selected like text in an editor once the headline lands: the lime
+   selection sweeps across while the end handle is dragged along with it. */
+@keyframes hero-mark-sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes hero-mark-drag {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - var(--handle-w));
+  }
+}
+
+@keyframes hero-mark-show {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-mark {
+  --handle-w: max(2px, 0.035em);
+  --mark-start: 1300ms;
+  --mark-sweep: 700ms;
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  padding: 0 0.1em;
+}
+
+.hero-mark::before {
+  content: '';
+  position: absolute;
+  inset: 0.06em 0 -0.02em;
+  z-index: -1;
+  background: var(--color-lime);
+  transform-origin: left;
+  animation: hero-mark-sweep var(--mark-sweep) cubic-bezier(0.65, 0, 0.35, 1) var(--mark-start) both;
+}
+
+.hero-mark-handle {
+  position: absolute;
+  top: 0.06em;
+  bottom: -0.02em;
+  width: var(--handle-w);
+  background: var(--color-ink);
+  animation: hero-mark-show 150ms ease-out calc(var(--mark-start) - 150ms) both;
+}
+
+.hero-mark-handle::after {
+  --dot: max(6px, 0.13em);
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: inherit;
+  transform: translateX(-50%);
+}
+
+.hero-mark-handle.is-start {
+  left: 0;
+}
+.hero-mark-handle.is-start::after {
+  top: calc(2px - var(--dot));
+}
+
+.hero-mark-handle.is-end {
+  left: calc(100% - var(--handle-w));
+  animation:
+    hero-mark-show 150ms ease-out calc(var(--mark-start) - 150ms) both,
+    hero-mark-drag var(--mark-sweep) cubic-bezier(0.65, 0, 0.35, 1) var(--mark-start) both;
+}
+.hero-mark-handle.is-end::after {
+  bottom: calc(2px - var(--dot));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-slot,
-  .hero-slot-inner {
+  .hero-slot-inner,
+  .hero-mark::before,
+  .hero-mark-handle,
+  .hero-mark-handle.is-end {
     animation: none;
   }
   .hero-slot {

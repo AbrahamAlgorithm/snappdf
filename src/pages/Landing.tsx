@@ -1,14 +1,16 @@
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { ArrowLeft, ArrowRight, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
 import { AccountModal } from '@/src/components/AccountModal';
 import { GitHubMark, Logo, LogoMark } from '@/src/components/brand';
 import { GitHubStarButton } from '@/src/components/GitHubStarButton';
-import { toolHref } from '@/src/lib/router';
-import { GITHUB_URL } from '@/src/lib/site';
+import { PrivacyChip, ToolIcon } from '@/src/components/toolkit';
+import { APP_HREF, toolHref } from '@/src/lib/router';
+import { getTool, GITHUB_URL } from '@/src/lib/site';
 import { cn } from '@/src/lib/utils';
 import { FileBar } from '@/src/pages/landing/FileBar';
 import { PrivacyShowcase } from '@/src/pages/landing/PrivacyShowcase';
-import { ToolShowcase } from '@/src/pages/landing/ToolShowcase';
+import { PHOTOS, Thumb, ToolShowcase } from '@/src/pages/landing/ToolShowcase';
 import '@/src/pages/landing/landing.css';
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
@@ -118,7 +120,7 @@ function Nav({ onAccount }: { onAccount: () => void }) {
           <button onClick={onAccount} className="hidden h-9 px-3 text-[14px] font-medium text-ink/70 transition-colors hover:text-ink md:block">
             Log in
           </button>
-          <ButtonLink href={toolHref('image-to-pdf')} className="hidden sm:inline-flex">
+          <ButtonLink href={APP_HREF} className="hidden sm:inline-flex">
             Open app
           </ButtonLink>
           <button
@@ -156,7 +158,7 @@ function Nav({ onAccount }: { onAccount: () => void }) {
                 </a>
               ))}
               <div className="mt-6 grid gap-2">
-                <ButtonLink href={toolHref('image-to-pdf')} size="lg">
+                <ButtonLink href={APP_HREF} size="lg">
                   Open app
                 </ButtonLink>
                 <ButtonLink
@@ -187,79 +189,6 @@ function Nav({ onAccount }: { onAccount: () => void }) {
 
 function useSvgId() {
   return useId().replace(/[^a-zA-Z0-9_-]/g, '');
-}
-
-function PhotoTile() {
-  const id = useSvgId();
-  return (
-    <svg viewBox="0 0 100 100" className="block size-full">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0.55" y2="1">
-          <stop offset="0" stopColor="#ffc27a" />
-          <stop offset="0.52" stopColor="#ff5f7e" />
-          <stop offset="1" stopColor="#4a2179" />
-        </linearGradient>
-      </defs>
-      <rect width="100" height="100" fill={`url(#${id})`} />
-      <circle cx="67" cy="34" r="11" fill="#fff4d6" />
-      <path d="M0 80 27 53 45 69 63 50 100 83V100H0Z" fill="#2b0d44" opacity="0.5" />
-      <path d="M0 92 33 71 57 86 80 75 100 89V100H0Z" fill="#1a0730" opacity="0.6" />
-    </svg>
-  );
-}
-
-function SignatureTile() {
-  return (
-    <svg viewBox="0 0 100 100" className="block size-full">
-      <rect width="100" height="100" fill="#52ff00" />
-      <path d="M18 74H82" stroke="#0b0b0c" strokeOpacity="0.25" strokeWidth="2.5" strokeDasharray="4 5" strokeLinecap="round" />
-      <path
-        d="M17 60c6-13 11-21 16-19s-5 23-1 23 10-19 15-19-3 16 2 16 8-13 13-13 2 11 7 11 10-14 17-14"
-        fill="none"
-        stroke="#0b0b0c"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function MiniPage({ x, y }: { x: number; y: number }) {
-  return (
-    <>
-      <rect x={x} y={y} width="34" height="46" rx="4" fill="#fff" />
-      <rect x={x + 5} y={y + 6} width="15" height="3.5" rx="1.75" fill="#0b0b0c" opacity="0.75" />
-      {[14, 20, 26, 32].map((dy, i) => (
-        <rect key={dy} x={x + 5} y={y + dy} width={i === 3 ? 14 : 24} height="2.5" rx="1.25" fill="#0b0b0c" opacity="0.15" />
-      ))}
-    </>
-  );
-}
-
-function SplitTile() {
-  return (
-    <svg viewBox="0 0 100 100" className="block size-full">
-      <rect width="100" height="100" fill="#141416" />
-      <g transform="rotate(-9 34 50)">
-        <MiniPage x={17} y={27} />
-      </g>
-      <g transform="rotate(9 66 50)">
-        <MiniPage x={49} y={27} />
-      </g>
-    </svg>
-  );
-}
-
-function SheetTile() {
-  return (
-    <svg viewBox="0 0 100 100" className="block size-full">
-      <rect width="100" height="100" fill="#1fa463" />
-      <rect x="19" y="24" width="62" height="52" rx="6" fill="#fff" />
-      <path d="M19 30a6 6 0 0 1 6-6h50a6 6 0 0 1 6 6v8H19z" fill="#d7f3e3" />
-      <path d="M40 24v52M60 24v52M19 38h62M19 51h62M19 64h62" stroke="#1fa463" strokeOpacity="0.35" strokeWidth="1.6" />
-    </svg>
-  );
 }
 
 function PdfTile({ behind, children }: { behind?: ReactNode; children?: ReactNode }) {
@@ -333,7 +262,6 @@ function PdfStackTile() {
 
 type Tile = () => ReactNode;
 
-const ACTION_TILES: Tile[] = [PhotoTile, SignatureTile, SplitTile, SheetTile];
 const PDF_TILES: Tile[] = [PdfTextTile, PdfPhotoTile, PdfSignedTile, PdfStackTile];
 
 const SWAP_EVERY = 2600;
@@ -401,68 +329,151 @@ function HeadlineLine({ children, delay }: { children: ReactNode; delay: number 
   );
 }
 
+const PREVIEW_TOOL = getTool('image-to-pdf');
+
+// A still of the Image to PDF editor mid-job, framed like a product shot and cropped by its frame.
+function HeroPreview() {
+  return (
+    <motion.div
+      aria-hidden="true"
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1, delay: 0.5, ease: EASE }}
+      className="mx-auto mt-14 max-w-6xl px-4 sm:mt-20 sm:px-6"
+    >
+      <div className="h-[460px] overflow-hidden rounded-[28px] bg-[#e9e9ec] px-2.5 pt-2.5 sm:h-[560px] sm:rounded-[40px] sm:px-6 sm:pt-6 lg:h-[620px] lg:px-10 lg:pt-10">
+        <div className="flex h-full flex-col overflow-hidden rounded-t-[20px] bg-subtle text-left shadow-[0_0_0_1px_rgba(0,0,0,0.05)] sm:rounded-t-[28px]">
+          <div className="flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas px-2 sm:h-16 sm:px-4">
+            <span className="grid size-10 place-items-center text-ink/70">
+              <ArrowLeft size={20} />
+            </span>
+            <ToolIcon tool={PREVIEW_TOOL} size="sm" className="ml-1" />
+            <span className="ml-2.5 text-[16px] font-semibold tracking-[-0.02em] sm:text-[17px]">{PREVIEW_TOOL.name}</span>
+            <PrivacyChip className="ml-auto hidden sm:inline-flex" />
+          </div>
+
+          <div className="flex min-h-0 flex-1 gap-5 p-3 sm:p-5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-end justify-between gap-3 px-1 pb-4 pt-1">
+                <div>
+                  <p className="text-[18px] font-semibold tracking-[-0.02em] sm:text-[20px]">{PHOTOS.length} images</p>
+                  <p className="mt-0.5 text-[13px] text-ink/55 sm:text-[14px]">Drag to change the page order.</p>
+                </div>
+                <span className="hidden h-10 items-center gap-2 rounded-full border border-line bg-canvas px-5 text-[14px] font-medium sm:inline-flex">
+                  <ImagePlus size={18} />
+                  Add images
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {PHOTOS.map((p, i) => (
+                  <div key={p.name} className="rounded-[20px] bg-canvas p-2">
+                    <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[14px] bg-subtle p-2">
+                      <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-[6px]">
+                        <Thumb art={p.art} desk={p.desk} r={p.r} />
+                      </span>
+                      <span className="absolute left-2 top-2 min-w-6 rounded-full bg-ink px-2 py-0.5 text-center text-[12px] font-medium tabular-nums text-canvas">
+                        {i + 1}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2.5 px-1.5 pb-1 pt-2.5 text-ink/55">
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/65">{p.name}</span>
+                      <RotateCw size={15} className="hidden shrink-0 md:block" />
+                      <Crop size={15} className="hidden shrink-0 md:block" />
+                      <Trash2 size={15} className="hidden shrink-0 md:block" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden w-[300px] shrink-0 flex-col self-start rounded-[24px] bg-canvas p-5 lg:flex">
+              <p className="text-[16px] font-semibold tracking-[-0.01em]">PDF settings</p>
+              <div className="mt-5 flex justify-between text-[14px]">
+                <span className="font-medium">Image quality</span>
+                <span className="text-ink/60">85%</span>
+              </div>
+              <span className="relative mt-4 block h-1 rounded-full bg-line">
+                <span className="absolute inset-y-0 left-0 w-[85%] rounded-full bg-ink" />
+                <span className="absolute left-[85%] top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-4 ring-canvas" />
+              </span>
+              <span className="mt-2.5 flex justify-between text-[12px] text-ink/45">
+                <span>Smaller file</span>
+                <span>Sharper</span>
+              </span>
+              <span className="mt-6 grid gap-2.5 border-t border-line pt-5 text-[14px]">
+                {[
+                  ['Pages', String(PHOTOS.length)],
+                  ['Page size', 'A4, portrait'],
+                  ['Original size', '11.3 MB'],
+                  ['Estimated PDF', 'about 6.7 MB'],
+                ].map(([k, v]) => (
+                  <span key={k} className="flex justify-between">
+                    <span className="text-ink/55">{k}</span>
+                    <span className="font-medium">{v}</span>
+                  </span>
+                ))}
+              </span>
+              <span className="mt-6 flex h-12 items-center justify-center gap-2 rounded-full bg-ink text-[15px] font-medium text-canvas">
+                <Download size={18} />
+                Create PDF
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function Hero({ onAccount }: { onAccount: () => void }) {
   return (
-    <section className="relative overflow-hidden pb-20 pt-32 sm:pb-28 sm:pt-44">
+    <section className="relative overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36 lg:pt-40">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
-        <motion.a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE }}
-          className="inline-flex items-center gap-2 rounded-full bg-subtle px-3.5 py-1.5 text-[13px] font-medium text-ink/70 transition-colors hover:bg-line hover:text-ink"
-        >
-          <span className="size-1.5 rounded-full bg-lime ring-[3px] ring-lime/30" />
-          Free and open source. No paywalls, ever.
-        </motion.a>
-
         <h1
-          aria-label="Do anything with a PDF, for free"
+          aria-label="The ultimate PDF workspace. Zero paywalls."
           style={HEADLINE_VARS}
-          className="mx-auto mt-7 text-[40px] font-semibold leading-[1.05] tracking-[-0.05em] sm:text-[72px] lg:text-[92px]"
+          className="mx-auto whitespace-nowrap text-[length:min(40px,10.5vw)] font-semibold leading-[1.05] tracking-[-0.05em] sm:text-[56px] lg:text-[72px] xl:text-[80px]"
         >
-          <HeadlineLine delay={0.06}>
-            Do anything<HeadlineSlot tiles={ACTION_TILES} delay={1000} />with
-          </HeadlineLine>
+          <HeadlineLine delay={0.06}>The ultimate</HeadlineLine>
           <HeadlineLine delay={0.14}>
-            a<HeadlineSlot tiles={PDF_TILES} delay={1060} offset={SWAP_EVERY / 2} />PDF, for free
+            PDF<HeadlineSlot tiles={PDF_TILES} delay={1060} />workspace.
+          </HeadlineLine>
+          <HeadlineLine delay={0.22}>
+            <span className="hero-mark">
+              Zero paywalls.
+              <span aria-hidden="true" className="hero-mark-handle is-start" />
+              <span aria-hidden="true" className="hero-mark-handle is-end" />
+            </span>
           </HeadlineLine>
         </h1>
 
         <motion.p
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.14, ease: EASE }}
-          className="mx-auto mt-7 max-w-xl text-[17px] leading-relaxed text-ink/60 sm:text-[19px]"
+          transition={{ duration: 0.8, delay: 0.3, ease: EASE }}
+          className="mx-auto mt-6 max-w-2xl text-balance text-[17px] leading-relaxed text-ink/60 sm:mt-8 sm:text-[20px]"
         >
-          Turn photos into PDFs, split pages, convert files and sign documents, right in your browser. No watermarks,
-          no uploads, no sign-up.
+          <span className="sm:block">Everything you need to edit, convert, and manage PDFs.</span>{' '}
+          <span className="sm:block">Fast, private, and watermark-free.</span>
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.22, ease: EASE }}
-          className="mt-9 flex flex-col items-center justify-center gap-2.5 sm:flex-row"
+          transition={{ duration: 0.8, delay: 0.38, ease: EASE }}
+          className="mt-8 flex flex-col items-center justify-center gap-2.5 sm:mt-10 sm:flex-row"
         >
-          <ButtonLink href={toolHref('image-to-pdf')} size="lg" className="w-full sm:w-auto">
+          <ButtonLink href={APP_HREF} size="lg" className="w-full sm:w-auto">
             Start editing, it’s free
           </ButtonLink>
-          <ButtonLink tone="light" size="lg" onClick={onAccount} className="w-full sm:w-auto">
+          <ButtonLink tone="light" size="lg" onClick={onAccount} className="w-full gap-2 sm:w-auto">
             Create an account
+            <ArrowRight size={16} aria-hidden="true" />
           </ButtonLink>
         </motion.div>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-4 text-[13px] text-ink/45"
-        >
-          No account needed. Your files stay on your device.
-        </motion.p>
       </div>
+
+      <HeroPreview />
     </section>
   );
 }
@@ -498,7 +509,7 @@ function Modes({ onAccount }: { onAccount: () => void }) {
               <div className="mt-8 flex-1 border-t border-line pt-8 text-ink/85">
                 <Bullets dot="bg-lime" items={['No sign-up, no email, no password', 'Files never leave your device', 'Everything clears when you close the tab or clear your browser']} />
               </div>
-              <ButtonLink href={toolHref('image-to-pdf')} size="lg" className="mt-10 w-full">
+              <ButtonLink href={APP_HREF} size="lg" className="mt-10 w-full">
                 Start editing
               </ButtonLink>
             </div>
@@ -691,10 +702,11 @@ function Footer() {
         <FooterColumn
           title="Tools"
           links={[
-            { label: 'Images to PDF', href: toolHref('image-to-pdf') },
+            { label: 'All tools', href: APP_HREF },
+            { label: 'Image to PDF', href: toolHref('image-to-pdf') },
             { label: 'Split PDF', href: toolHref('pdf-splitter') },
-            { label: 'Convert files', href: toolHref('converter') },
-            { label: 'Sign documents', href: toolHref('sign-pdf') },
+            { label: 'Sign PDF', href: toolHref('sign-pdf') },
+            { label: 'PDF to Word', href: toolHref('pdf-to-word') },
           ]}
         />
         <FooterColumn
