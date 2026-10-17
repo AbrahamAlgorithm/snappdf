@@ -58,7 +58,7 @@ export function GitHubStarButton({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[14px] font-medium transition-colors',
+        'inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[15px] font-medium transition-colors',
         tone === 'light' ? 'bg-subtle text-ink hover:bg-line' : 'bg-ink text-canvas hover:bg-ink/85',
         className,
       )}
@@ -66,7 +66,7 @@ export function GitHubStarButton({
       <GitHubMark className="size-4" />
       {label}
       {stars !== null && (
-        <span className={cn('font-mono text-[12px]', tone === 'light' ? 'text-ink/50' : 'text-canvas/60')}>
+        <span className={cn('font-mono text-[13px]', tone === 'light' ? 'text-ink/50' : 'text-canvas/60')}>
           {formatCount(stars)}
         </span>
       )}

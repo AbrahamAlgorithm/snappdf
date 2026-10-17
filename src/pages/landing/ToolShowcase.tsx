@@ -1,6 +1,16 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeftRight, ArrowRight, Check, FileImage, GripVertical, Minus, PenTool, Plus, RotateCw, Scissors, ShieldCheck } from 'lucide-react';
+import businessDocument from '@/src/assets/landing/business-document.jpg'; // CC0, stocksnap.io/photo/business-document-AB4F938C85
+import cafeReceipt from '@/src/assets/landing/cafe-receipt.jpg'; // CC0, stocksnap.io/photo/coffee-cafelatte-F9A95133A1
+import letterClipboard from '@/src/assets/landing/letter-clipboard.jpg'; // CC0, stocksnap.io/photo/office-work-UP9J4EZYNJ
+import parkingPermit from '@/src/assets/landing/parking-permit.jpg'; // CC0, flickr.com/photos/43296902@N00/14508511975
+import paymentScreenshot from '@/src/assets/landing/payment-screenshot.jpg';
+import receiptStack from '@/src/assets/landing/receipt-stack.jpg'; // CC0, rawpixel.com/image/5924546/receipts-table-free-public-domain-cc0-image
+import statementA from '@/src/assets/landing/statement-a.jpg';
+import statementB from '@/src/assets/landing/statement-b.jpg';
+import statementC from '@/src/assets/landing/statement-c.jpg';
+import statementCover from '@/src/assets/landing/statement-cover.jpg';
 import { LogoMark } from '@/src/components/brand';
 import { APP_HREF, toolHref } from '@/src/lib/router';
 import { cn } from '@/src/lib/utils';
@@ -111,78 +121,13 @@ function Done({ title, note }: { title: string; note: string }) {
 
 /* ---------- images to PDF: phone photos of receipts become one PDF ---------- */
 
-type Art = 'receipt' | 'slip' | 'screenshot' | 'invoice' | 'ticket';
-
-export function Thumb({ art, desk, r = 0 }: { art: Art; desk: string; r?: number }) {
-  const style = { '--desk': desk, '--r': `${r}deg` } as CSSProperties;
-  if (art === 'screenshot') {
-    return (
-      <span className="ts-thumb" style={style}>
-        <span className="ts-shot">
-          <i className="ts-shot-ok" />
-          <b />
-          <i className="ts-shot-amt" />
-          <i />
-          <i className="w60" />
-          <i />
-        </span>
-      </span>
-    );
-  }
-  if (art === 'invoice') {
-    return (
-      <span className="ts-thumb" style={style}>
-        <span className="ts-inv">
-          <b />
-          <i className="w40" />
-          <span className="ts-inv-rows">
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
-          <i className="ts-inv-tot" />
-        </span>
-      </span>
-    );
-  }
-  if (art === 'ticket') {
-    return (
-      <span className="ts-thumb" style={style}>
-        <span className="ts-tkt">
-          <b />
-          <i />
-          <i className="w60" />
-          <span className="ts-bars" />
-        </span>
-      </span>
-    );
-  }
-  return (
-    <span className="ts-thumb" style={style}>
-      <span className={cn('ts-rc', art === 'slip' && 'is-slip')}>
-        <b />
-        <i className="w60" />
-        <i className="w40" />
-        <hr />
-        <i className="ts-row" />
-        <i className="ts-row" />
-        <i className="ts-row" />
-        {art === 'receipt' && <i className="ts-row" />}
-        <hr />
-        <i className="ts-tot" />
-      </span>
-    </span>
-  );
-}
-
-export const PHOTOS: { name: string; size: string; art: Art; desk: string; r?: number; heic?: number }[] = [
-  { name: 'IMG_2041.HEIC', size: '2.1 MB', art: 'receipt', desk: 'linear-gradient(135deg,#c9a98a,#a88466)', r: -5, heic: 0 },
-  { name: 'IMG_2042.HEIC', size: '1.8 MB', art: 'slip', desk: 'linear-gradient(135deg,#8e98a4,#6c7784)', r: 4, heic: 1 },
-  { name: 'Screenshot 09.41.png', size: '640 KB', art: 'screenshot', desk: '#eceef2' },
-  { name: 'IMG_2043.JPG', size: '3.4 MB', art: 'invoice', desk: 'repeating-linear-gradient(90deg,#e7e1d6 0 3px,#e1dacd 3px 6px)', r: -2 },
-  { name: 'parking.webp', size: '410 KB', art: 'ticket', desk: 'linear-gradient(135deg,#34363b,#24252a)', r: 6 },
-  { name: 'IMG_2045.JPG', size: '2.9 MB', art: 'receipt', desk: 'linear-gradient(135deg,#d2b597,#b3916f)', r: 3 },
+export const PHOTOS: { name: string; size: string; src: string; fit?: 'contain'; heic?: number }[] = [
+  { name: 'IMG_2041.HEIC', size: '2.1 MB', src: cafeReceipt, heic: 0 },
+  { name: 'IMG_2042.HEIC', size: '1.8 MB', src: receiptStack, heic: 1 },
+  { name: 'Screenshot 09.41.png', size: '640 KB', src: paymentScreenshot, fit: 'contain' },
+  { name: 'IMG_2043.JPG', size: '3.4 MB', src: letterClipboard },
+  { name: 'parking.webp', size: '410 KB', src: parkingPermit },
+  { name: 'IMG_2045.JPG', size: '2.9 MB', src: businessDocument },
 ];
 
 const CONVERT_STEPS = [12, 34, 58, 81, 100];
@@ -213,7 +158,7 @@ function ImagesView({ run, still }: ViewProps) {
           return (
             <div key={p.name} className={cn('ts-card', building && i + 1 === page && 'is-now')}>
               <span className="ts-card-art">
-                <Thumb art={p.art} desk={p.desk} r={p.r} />
+                <img src={p.src} alt="" loading="lazy" decoding="async" className={cn('ts-photo', p.fit === 'contain' && 'is-contain')} />
                 <span className="ts-num">{pad(i + 1)}</span>
                 {converting && (
                   <span className="ts-heic">
@@ -298,14 +243,17 @@ function SignView({ run, still }: ViewProps) {
         <div className="ts-canvas">
           <div className="ts-page">
           <p className="ts-page-h">11. Ending the tenancy</p>
-          <i />
-          <i className="w80" />
-          <i className="w60" />
+          <p className="ts-page-p">
+            Either party may end this agreement by giving at least two months’ notice in writing. At the end of the tenancy the
+            Tenant must leave the Property clean, in good repair and free of their belongings, allowing for fair wear and tear.
+          </p>
           <p className="ts-page-h">12. Keys and access</p>
-          <i />
-          <i className="w70" />
+          <p className="ts-page-p">
+            The Tenant will receive two sets of keys and must return every set on the last day of the tenancy. The Landlord may
+            visit the Property with at least 24 hours’ notice, except in an emergency.
+          </p>
           <p className="ts-page-h">13. Signatures</p>
-          <i className="w80" />
+          <p className="ts-page-p">By signing below, the Landlord and the Tenant agree to the terms on pages 1 to 4 of this agreement.</p>
           <div className="ts-sigs">
             <div className="ts-sigline">
               <Signature path={LANDLORD_PATH} className="ts-sig-done" />
@@ -376,24 +324,7 @@ function SignView({ run, still }: ViewProps) {
 
 /* ---------- split: three months of statement pages, then one more ---------- */
 
-function PageArt({ cover }: { cover?: boolean }) {
-  return cover ? (
-    <span className="ts-pg-art is-cover">
-      <b />
-      <i className="w60" />
-      <span className="ts-pg-box" />
-      <i />
-      <i className="w70" />
-    </span>
-  ) : (
-    <span className="ts-pg-art">
-      <b />
-      {[0, 1, 2, 3, 4, 5, 6].map((r) => (
-        <i key={r} className="ts-pg-row" />
-      ))}
-    </span>
-  );
-}
+const STATEMENT_PAGES = [statementA, statementB, statementC];
 
 function SplitView({ run, still }: ViewProps) {
   const tick = useTicker(run, 520);
@@ -422,7 +353,9 @@ function SplitView({ run, still }: ViewProps) {
           const pos = order.indexOf(n);
           return (
             <div key={n} className={cn('ts-pg', pos >= 0 && 'is-sel')}>
-              <PageArt cover={n === 1} />
+              <span className="ts-pg-art">
+                <img src={n === 1 ? statementCover : STATEMENT_PAGES[(n - 2) % STATEMENT_PAGES.length]} alt="" loading="lazy" decoding="async" />
+              </span>
               {pos >= 0 && <span className="ts-pg-badge">{pos + 1}</span>}
               <span className="ts-pg-n">{n}</span>
             </div>

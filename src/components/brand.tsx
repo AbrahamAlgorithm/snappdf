@@ -5,7 +5,7 @@ export const LOGO_PATH = 'M14 0H60V16H18V24H60V50L46 64H0V48H42V40H0V14Z';
 
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 60 64" fill="currentColor" aria-hidden="true" className={cn('h-[18px] w-auto', className)}>
+    <svg viewBox="0 0 60 64" fill="currentColor" aria-hidden="true" className={cn('h-5 w-auto', className)}>
       <path d={LOGO_PATH} />
     </svg>
   );
@@ -15,7 +15,7 @@ export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn('flex items-center gap-2 text-ink', className)}>
       <LogoMark />
-      <span className="text-[17px] font-semibold tracking-[-0.04em]">snappdf</span>
+      <span className="text-[19px] font-semibold tracking-[-0.04em]">snappdf</span>
     </span>
   );
 }

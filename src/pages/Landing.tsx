@@ -1,8 +1,7 @@
-import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
-import { AccountModal } from '@/src/components/AccountModal';
-import { GitHubMark, Logo, LogoMark } from '@/src/components/brand';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowLeft, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
+import { Logo, LogoMark } from '@/src/components/brand';
 import { GitHubStarButton } from '@/src/components/GitHubStarButton';
 import { PrivacyChip, ToolIcon } from '@/src/components/toolkit';
 import { APP_HREF, toolHref } from '@/src/lib/router';
@@ -10,7 +9,7 @@ import { getTool, GITHUB_URL } from '@/src/lib/site';
 import { cn } from '@/src/lib/utils';
 import { FileBar } from '@/src/pages/landing/FileBar';
 import { PrivacyShowcase } from '@/src/pages/landing/PrivacyShowcase';
-import { PHOTOS, Thumb, ToolShowcase } from '@/src/pages/landing/ToolShowcase';
+import { PHOTOS, ToolShowcase } from '@/src/pages/landing/ToolShowcase';
 import '@/src/pages/landing/landing.css';
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
@@ -65,15 +64,6 @@ function ButtonLink({
   );
 }
 
-function SectionHeading({ title, sub, className }: { title: ReactNode; sub?: ReactNode; className?: string }) {
-  return (
-    <Reveal className={cn('mx-auto max-w-3xl text-center', className)}>
-      <h2 className="text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] text-balance sm:text-[56px]">{title}</h2>
-      {sub && <p className="mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-ink/55 sm:text-[17px]">{sub}</p>}
-    </Reveal>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Nav
 // ---------------------------------------------------------------------------
@@ -84,7 +74,7 @@ const NAV_LINKS = [
   { label: 'FAQ', href: '#faq' },
 ];
 
-function Nav({ onAccount }: { onAccount: () => void }) {
+function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -102,32 +92,29 @@ function Nav({ onAccount }: { onAccount: () => void }) {
         scrolled || menuOpen ? 'bg-canvas/85 shadow-[0_1px_0_var(--color-line)] backdrop-blur-xl' : 'bg-transparent',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
-        <a href="#/" aria-label="snappdf home" onClick={() => window.scrollTo({ top: 0 })} className="rounded-md">
+      <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
+        <a href="#/" aria-label="snappdf home" onClick={() => window.scrollTo({ top: 0 })} className="flex h-11 items-center rounded-md">
           <Logo />
         </a>
 
-        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Main" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="rounded-md px-3 py-2 text-[14px] font-medium text-ink/70 transition-colors hover:text-ink">
+            <a key={link.href} href={link.href} className="flex h-11 items-center rounded-md px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink">
               {link.label}
             </a>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
-          <GitHubStarButton className="hidden sm:inline-flex" />
-          <button onClick={onAccount} className="hidden h-9 px-3 text-[14px] font-medium text-ink/70 transition-colors hover:text-ink md:block">
-            Log in
-          </button>
-          <ButtonLink href={APP_HREF} className="hidden sm:inline-flex">
-            Open app
-          </ButtonLink>
+          <a href={APP_HREF} className="hidden h-11 items-center px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink sm:flex">
+            Get started
+          </a>
+          <GitHubStarButton className="hidden h-11 sm:inline-flex" />
           <button
             onClick={() => setMenuOpen((o) => !o)}
             aria-expanded={menuOpen}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            className="grid size-10 place-items-center md:hidden"
+            className="grid size-11 place-items-center md:hidden"
           >
             <span aria-hidden="true" className="relative block h-3 w-5">
               <span className={cn('absolute left-0 h-[2px] w-5 rounded-full bg-ink transition-transform duration-300', menuOpen ? 'top-1/2 -translate-y-1/2 rotate-45' : 'top-0')} />
@@ -147,7 +134,7 @@ function Nav({ onAccount }: { onAccount: () => void }) {
             className="overflow-hidden md:hidden"
           >
             <div className="px-4 pb-6 pt-2">
-              {NAV_LINKS.map((link) => (
+              {[...NAV_LINKS, { label: 'Get started', href: APP_HREF }].map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
@@ -157,21 +144,8 @@ function Nav({ onAccount }: { onAccount: () => void }) {
                   {link.label}
                 </a>
               ))}
-              <div className="mt-6 grid gap-2">
-                <ButtonLink href={APP_HREF} size="lg">
-                  Open app
-                </ButtonLink>
-                <ButtonLink
-                  tone="light"
-                  size="lg"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onAccount();
-                  }}
-                >
-                  Log in
-                </ButtonLink>
-                <GitHubStarButton label="Star on GitHub" className="h-12 justify-center" />
+              <div className="mt-6">
+                <GitHubStarButton label="Star on GitHub" className="h-12 w-full justify-center" />
               </div>
             </div>
           </motion.div>
@@ -185,19 +159,16 @@ function Nav({ onAccount }: { onAccount: () => void }) {
 // Hero
 // ---------------------------------------------------------------------------
 
-// Headline slot tiles: tiny illustrations on a 100×100 grid. The slot clips them to a squircle.
-
-function useSvgId() {
-  return useId().replace(/[^a-zA-Z0-9_-]/g, '');
-}
-
-function PdfTile({ behind, children }: { behind?: ReactNode; children?: ReactNode }) {
+// The headline's PDF icon, drawn on a 100×100 grid; its slot clips it to a squircle.
+function PdfIcon() {
   return (
     <svg viewBox="0 0 100 100" className="block size-full">
       <rect width="100" height="100" fill="#f5402c" />
-      {behind}
       <rect x="25" y="13" width="50" height="68" rx="6" fill="#fff" />
-      {children}
+      <rect x="32" y="22" width="22" height="4" rx="2" fill="#0b0b0c" opacity="0.8" />
+      {[36, 30, 36, 24].map((w, i) => (
+        <rect key={i} x="32" y={31 + i * 7} width={w} height="3" rx="1.5" fill="#0b0b0c" opacity="0.14" />
+      ))}
       <rect x="15" y="62" width="30" height="15" rx="4.5" fill="#fff" stroke="#f5402c" strokeWidth="2" />
       <text x="30" y="72.6" textAnchor="middle" fontSize="10" fontWeight="700" fill="#f5402c" letterSpacing="0.3">
         PDF
@@ -206,100 +177,25 @@ function PdfTile({ behind, children }: { behind?: ReactNode; children?: ReactNod
   );
 }
 
-function PdfLines({ from = 22, rows = [36, 30, 36, 24] }: { from?: number; rows?: number[] }) {
+function Smiley() {
   return (
-    <>
-      <rect x="32" y={from} width="22" height="4" rx="2" fill="#0b0b0c" opacity="0.8" />
-      {rows.map((w, i) => (
-        <rect key={i} x="32" y={from + 9 + i * 7} width={w} height="3" rx="1.5" fill="#0b0b0c" opacity="0.14" />
-      ))}
-    </>
+    <svg viewBox="0 0 100 100" aria-hidden="true" className="hero-smile">
+      <circle cx="50" cy="50" r="44" fill="#fff" stroke="currentColor" strokeWidth="10" />
+      <circle cx="35" cy="36" r="7" fill="currentColor" />
+      <circle cx="65" cy="36" r="7" fill="currentColor" />
+      <path d="M27 52h46a3 3 0 0 1 3 3c0 14-11.6 25-26 25S24 69 24 55a3 3 0 0 1 3-3z" fill="currentColor" />
+    </svg>
   );
 }
 
-function PdfPhotoTile() {
-  const id = useSvgId();
-  return (
-    <PdfTile>
-      <defs>
-        <radialGradient id={id} cx="0.3" cy="0.25" r="0.9">
-          <stop offset="0" stopColor="#bdf0ff" />
-          <stop offset="0.46" stopColor="#3f7bff" />
-          <stop offset="1" stopColor="#0d1a44" />
-        </radialGradient>
-      </defs>
-      <rect x="31" y="20" width="38" height="27" rx="3" fill={`url(#${id})`} />
-      <rect x="31" y="52" width="38" height="3" rx="1.5" fill="#0b0b0c" opacity="0.14" />
-      <rect x="49" y="59" width="20" height="3" rx="1.5" fill="#0b0b0c" opacity="0.14" />
-    </PdfTile>
-  );
-}
-
-function PdfTextTile() {
-  return (
-    <PdfTile>
-      <PdfLines />
-    </PdfTile>
-  );
-}
-
-function PdfSignedTile() {
-  return (
-    <PdfTile>
-      <PdfLines rows={[36, 30, 24]} />
-      <path d="M50 66c3-6 5-9 7-8s-2 10 0 10 4-8 6-8-1 7 1 7 4-5 6-5" fill="none" stroke="#0b0b0c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </PdfTile>
-  );
-}
-
-function PdfStackTile() {
-  return (
-    <PdfTile behind={<rect x="31" y="8" width="50" height="68" rx="6" fill="#fff" opacity="0.55" />}>
-      <PdfLines />
-    </PdfTile>
-  );
-}
-
-type Tile = () => ReactNode;
-
-const PDF_TILES: Tile[] = [PdfTextTile, PdfPhotoTile, PdfSignedTile, PdfStackTile];
-
-const SWAP_EVERY = 2600;
-
-const TILE_VARIANTS = {
-  shown: { opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.55, bounce: 0.35 } },
-  hidden: { opacity: 0, scale: 0.78, filter: 'blur(7px)', transition: { duration: 0.22, ease: 'easeOut' } },
-} as const;
-
-// Sits in the headline in place of a space, opens once its line has landed, then cycles through
-// its tiles on a timer. Clicking skips to the next tile (and restarts the countdown).
-function HeadlineSlot({ tiles, delay, offset = 0 }: { tiles: Tile[]; delay: number; offset?: number }) {
-  const [index, setIndex] = useState(0);
-  const [mountedAt] = useState(() => performance.now());
-  const reduceMotion = useReducedMotion();
-  const next = () => setIndex((i) => (i + 1) % tiles.length);
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    const untilFirstSwap = delay + offset + SWAP_EVERY - (performance.now() - mountedAt);
-    const id = setTimeout(next, Math.max(SWAP_EVERY, untilFirstSwap));
-    return () => clearTimeout(id);
-  }, [index, reduceMotion]);
-
+// Sits in the headline in place of a space and opens to make room for its icon once the line has landed.
+function HeadlineSlot({ delay, children }: { delay: number; children: ReactNode }) {
   return (
     <span className="hero-slot" style={{ animationDelay: `${delay}ms` }}>
-      <span className="hero-slot-inner" style={{ animationDelay: `${delay + 90}ms` }} onClick={next}>
-        {tiles.map((TileArt, i) => (
-          <motion.span
-            key={i}
-            initial={false}
-            animate={i === index ? 'shown' : 'hidden'}
-            variants={TILE_VARIANTS}
-            className="absolute inset-0 overflow-hidden rounded-[30%] after:pointer-events-none after:absolute after:inset-0 after:rounded-[30%] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]"
-          >
-            <TileArt />
-          </motion.span>
-        ))}
+      <span className="hero-slot-inner" style={{ animationDelay: `${delay + 90}ms` }}>
+        <span className="absolute inset-0 overflow-hidden rounded-[30%] after:pointer-events-none after:absolute after:inset-0 after:rounded-[30%] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]">
+          {children}
+        </span>
       </span>
     </span>
   );
@@ -367,10 +263,8 @@ function HeroPreview() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {PHOTOS.map((p, i) => (
                   <div key={p.name} className="rounded-[20px] bg-canvas p-2">
-                    <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[14px] bg-subtle p-2">
-                      <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-[6px]">
-                        <Thumb art={p.art} desk={p.desk} r={p.r} />
-                      </span>
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-[14px] bg-subtle">
+                      <img src={p.src} alt="" loading="lazy" decoding="async" className="size-full object-contain p-2" />
                       <span className="absolute left-2 top-2 min-w-6 rounded-full bg-ink px-2 py-0.5 text-center text-[12px] font-medium tabular-nums text-canvas">
                         {i + 1}
                       </span>
@@ -425,25 +319,26 @@ function HeroPreview() {
   );
 }
 
-function Hero({ onAccount }: { onAccount: () => void }) {
+function Hero() {
   return (
     <section className="relative overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36 lg:pt-40">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
         <h1
-          aria-label="The ultimate PDF workspace. Zero paywalls."
+          aria-label="The ultimate PDF workspace. Zero paywalls"
           style={HEADLINE_VARS}
-          className="mx-auto whitespace-nowrap text-[length:min(40px,10.5vw)] font-semibold leading-[1.05] tracking-[-0.05em] sm:text-[56px] lg:text-[72px] xl:text-[80px]"
+          className="mx-auto whitespace-nowrap text-[length:min(40px,10.5vw)] font-semibold leading-[1.05] tracking-[-0.05em] text-black sm:text-[56px] lg:text-[72px] xl:text-[80px]"
         >
           <HeadlineLine delay={0.06}>The ultimate</HeadlineLine>
           <HeadlineLine delay={0.14}>
-            PDF<HeadlineSlot tiles={PDF_TILES} delay={1060} />workspace.
+            PDF
+            <HeadlineSlot delay={1060}>
+              <PdfIcon />
+            </HeadlineSlot>
+            workspace.
           </HeadlineLine>
           <HeadlineLine delay={0.22}>
-            <span className="hero-mark">
-              Zero paywalls.
-              <span aria-hidden="true" className="hero-mark-handle is-start" />
-              <span aria-hidden="true" className="hero-mark-handle is-end" />
-            </span>
+            Zero paywalls
+            <Smiley />
           </HeadlineLine>
         </h1>
 
@@ -451,10 +346,10 @@ function Hero({ onAccount }: { onAccount: () => void }) {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: EASE }}
-          className="mx-auto mt-6 max-w-2xl text-balance text-[17px] leading-relaxed text-ink/60 sm:mt-8 sm:text-[20px]"
+          className="mx-auto mt-10 max-w-[400px] text-balance text-[20px] font-[440] leading-[26px] text-ink/60 md:max-w-none"
         >
-          <span className="sm:block">Everything you need to edit, convert, and manage PDFs.</span>{' '}
-          <span className="sm:block">Fast, private, and watermark-free.</span>
+          <span className="md:block">Everything you need to edit, convert, and manage PDFs.</span>{' '}
+          <span className="md:block">Fast, private, and watermark-free.</span>
         </motion.p>
 
         <motion.div
@@ -466,10 +361,7 @@ function Hero({ onAccount }: { onAccount: () => void }) {
           <ButtonLink href={APP_HREF} size="lg" className="w-full sm:w-auto">
             Start editing, it’s free
           </ButtonLink>
-          <ButtonLink tone="light" size="lg" onClick={onAccount} className="w-full gap-2 sm:w-auto">
-            Create an account
-            <ArrowRight size={16} aria-hidden="true" />
-          </ButtonLink>
+          <GitHubStarButton label="Star on GitHub" className="h-12 w-full justify-center px-6 sm:w-auto" />
         </motion.div>
       </div>
 
@@ -481,110 +373,6 @@ function Hero({ onAccount }: { onAccount: () => void }) {
 // ---------------------------------------------------------------------------
 // Two ways to use it
 // ---------------------------------------------------------------------------
-
-function Bullets({ items, dot }: { items: string[]; dot: string }) {
-  return (
-    <ul className="space-y-3.5">
-      {items.map((item) => (
-        <li key={item} className="flex items-baseline gap-3 text-[15px]">
-          <span aria-hidden="true" className={cn('size-1.5 shrink-0 translate-y-[-2px] rounded-full', dot)} />
-          {item}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Modes({ onAccount }: { onAccount: () => void }) {
-  return (
-    <section id="modes" className="scroll-mt-16 pb-24 sm:pb-36">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading title="Use it once, or make it yours" sub="Jump into a quick edit with nothing to sign up for, or create a free account when you want your work to stick around." />
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
-          <Reveal>
-            <div className="theme-dark flex h-full flex-col rounded-[28px] bg-canvas p-8 sm:p-10">
-              <span className="w-fit rounded-[7px] bg-lime px-2 py-0.5 text-[12px] font-semibold text-black">Available now</span>
-              <h3 className="mt-10 text-[32px] font-semibold tracking-[-0.04em]">Quick edit</h3>
-              <p className="mt-1 text-[16px] text-ink/55">For the thirty-second job.</p>
-              <div className="mt-8 flex-1 border-t border-line pt-8 text-ink/85">
-                <Bullets dot="bg-lime" items={['No sign-up, no email, no password', 'Files never leave your device', 'Everything clears when you close the tab or clear your browser']} />
-              </div>
-              <ButtonLink href={APP_HREF} size="lg" className="mt-10 w-full">
-                Start editing
-              </ButtonLink>
-            </div>
-          </Reveal>
-          <Reveal delay={0.06}>
-            <div className="flex h-full flex-col rounded-[28px] bg-subtle p-8 sm:p-10">
-              <span className="w-fit rounded-[7px] bg-card px-2 py-0.5 text-[12px] font-semibold text-ink/60 ring-1 ring-black/[0.06]">Coming soon</span>
-              <h3 className="mt-10 text-[32px] font-semibold tracking-[-0.04em]">Free account</h3>
-              <p className="mt-1 text-[16px] text-ink/55">For the work you come back to.</p>
-              <div className="mt-8 flex-1 border-t border-line pt-8 text-ink/85">
-                <Bullets dot="bg-ink" items={['Saved documents and history', 'Reusable signatures', 'Pick up where you left off, on any device']} />
-              </div>
-              <ButtonLink size="lg" onClick={onAccount} className="mt-10 w-full">
-                Create a free account
-              </ButtonLink>
-            </div>
-          </Reveal>
-        </div>
-        <Reveal>
-          <p className="mt-6 text-center text-[14px] text-ink/45">Both are free. Both stay free.</p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Open source
-// ---------------------------------------------------------------------------
-
-function OpenSource() {
-  return (
-    <section id="github" className="scroll-mt-16 pb-24 sm:pb-36">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <Reveal>
-          <div className="theme-dark grid gap-12 overflow-hidden rounded-[32px] bg-canvas p-8 sm:p-12 lg:grid-cols-2 lg:items-center lg:p-16">
-            <div>
-              <GitHubMark className="size-9" />
-              <h2 className="mt-8 text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[52px]">Built in the open</h2>
-              <p className="mt-5 max-w-md text-[17px] leading-relaxed text-ink/60">
-                snappdf is free because it’s open source. Read every line, report a bug, or build the next tool yourself.
-              </p>
-              <div className="mt-9 flex flex-wrap items-center gap-3">
-                <GitHubStarButton label="Star on GitHub" tone="dark" className="h-12 px-5 text-[15px]" />
-                <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="px-3 py-3 text-[15px] font-medium text-ink/70 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink">
-                  Contribute
-                </a>
-              </div>
-            </div>
-
-            <div className="overflow-hidden rounded-2xl bg-card font-mono text-[12px] ring-1 ring-line sm:text-[13px]">
-              <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
-                <span className="size-2.5 rounded-full bg-ink/15" />
-                <span className="size-2.5 rounded-full bg-ink/15" />
-                <span className="size-2.5 rounded-full bg-ink/15" />
-              </div>
-              <pre className="overflow-x-auto p-5 leading-7 text-ink/80">
-                <code>
-                  <span className="text-ink/30">$ </span>git clone {GITHUB_URL}
-                  {'\n'}
-                  <span className="text-ink/30">$ </span>cd snappdf && npm install
-                  {'\n'}
-                  <span className="text-ink/30">$ </span>npm run dev
-                  {'\n'}
-                  <span className="text-lime">ready </span>
-                  <span className="text-ink/50">on</span> http://localhost:3000
-                </code>
-              </pre>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // FAQ
@@ -603,7 +391,7 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
   {
     q: 'Which file types are supported?',
-    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also split and sign any PDF.',
+    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also merge, split and sign any PDF.',
   },
   {
     q: 'Can I contribute?',
@@ -704,6 +492,7 @@ function Footer() {
           links={[
             { label: 'All tools', href: APP_HREF },
             { label: 'Image to PDF', href: toolHref('image-to-pdf') },
+            { label: 'Merge PDF', href: toolHref('merge-pdf') },
             { label: 'Split PDF', href: toolHref('pdf-splitter') },
             { label: 'Sign PDF', href: toolHref('sign-pdf') },
             { label: 'PDF to Word', href: toolHref('pdf-to-word') },
@@ -740,9 +529,6 @@ function Footer() {
 // ---------------------------------------------------------------------------
 
 export default function Landing() {
-  const [accountOpen, setAccountOpen] = useState(false);
-  const openAccount = () => setAccountOpen(true);
-
   // Warm up the (heavy) workspace bundle so "Start editing" feels instant.
   useEffect(() => {
     const id = setTimeout(() => void import('@/src/pages/Workspace'), 1500);
@@ -752,22 +538,17 @@ export default function Landing() {
   return (
     <div className="theme-dark min-h-screen overflow-x-clip bg-canvas">
       <div className="theme-light relative z-10 rounded-b-[32px] bg-canvas sm:rounded-b-[48px]">
-        <Nav onAccount={openAccount} />
+        <Nav />
         <main className="lp">
-          <Hero onAccount={openAccount} />
+          <Hero />
           <FileBar />
           <ToolShowcase />
-          <Modes onAccount={openAccount} />
           <PrivacyShowcase />
-          <OpenSource />
           <Faq />
         </main>
       </div>
       <div className="-mt-12">
         <Footer />
-      </div>
-      <div className="theme-light">
-        <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
       </div>
     </div>
   );

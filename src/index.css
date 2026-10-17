@@ -130,103 +130,36 @@
   height: var(--icon-size);
   transform: translateX(-50%);
   animation: hero-slot-in 440ms ease-out both;
-  cursor: pointer;
   user-select: none;
 }
 
-/* "Zero paywalls." gets selected like text in an editor once the headline lands: the lime
-   selection sweeps across while the end handle is dragged along with it. */
-@keyframes hero-mark-sweep {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes hero-mark-drag {
-  from {
-    left: 0;
-  }
-  to {
-    left: calc(100% - var(--handle-w));
-  }
-}
-
-@keyframes hero-mark-show {
+/* The smiley after "Zero paywalls." leans back at 45°; it spins into place once its line lands. */
+@keyframes hero-smile-in {
   from {
     opacity: 0;
+    transform: rotate(60deg) scale(0.3);
   }
   to {
     opacity: 1;
+    transform: rotate(-45deg) scale(1);
   }
 }
 
-.hero-mark {
-  --handle-w: max(2px, 0.035em);
-  --mark-start: 1300ms;
-  --mark-sweep: 700ms;
-  position: relative;
+.hero-smile {
   display: inline-block;
-  isolation: isolate;
-  padding: 0 0.1em;
-}
-
-.hero-mark::before {
-  content: '';
-  position: absolute;
-  inset: 0.06em 0 -0.02em;
-  z-index: -1;
-  background: var(--color-lime);
-  transform-origin: left;
-  animation: hero-mark-sweep var(--mark-sweep) cubic-bezier(0.65, 0, 0.35, 1) var(--mark-start) both;
-}
-
-.hero-mark-handle {
-  position: absolute;
-  top: 0.06em;
-  bottom: -0.02em;
-  width: var(--handle-w);
-  background: var(--color-ink);
-  animation: hero-mark-show 150ms ease-out calc(var(--mark-start) - 150ms) both;
-}
-
-.hero-mark-handle::after {
-  --dot: max(6px, 0.13em);
-  content: '';
-  position: absolute;
-  left: 50%;
-  width: var(--dot);
-  height: var(--dot);
-  border-radius: 50%;
-  background: inherit;
-  transform: translateX(-50%);
-}
-
-.hero-mark-handle.is-start {
-  left: 0;
-}
-.hero-mark-handle.is-start::after {
-  top: calc(2px - var(--dot));
-}
-
-.hero-mark-handle.is-end {
-  left: calc(100% - var(--handle-w));
-  animation:
-    hero-mark-show 150ms ease-out calc(var(--mark-start) - 150ms) both,
-    hero-mark-drag var(--mark-sweep) cubic-bezier(0.65, 0, 0.35, 1) var(--mark-start) both;
-}
-.hero-mark-handle.is-end::after {
-  bottom: calc(2px - var(--dot));
+  width: 0.78em;
+  height: 0.78em;
+  margin-left: 0.16em;
+  vertical-align: -0.04em;
+  color: #000;
+  transform: rotate(-45deg);
+  animation: hero-smile-in 650ms cubic-bezier(0.34, 1.56, 0.64, 1) 1150ms both;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-slot,
   .hero-slot-inner,
-  .hero-mark::before,
-  .hero-mark-handle,
-  .hero-mark-handle.is-end {
+  .hero-smile {
     animation: none;
   }
   .hero-slot {
