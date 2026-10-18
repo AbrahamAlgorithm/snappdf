@@ -1,11 +1,10 @@
-import { Braces, FileSpreadsheet, FileText, FileType, Images, Merge, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
+import { Braces, FileSpreadsheet, FileText, FileType, Images, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
 
 export const GITHUB_REPO = 'AbrahamAlgorithm/snappdf';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
 export type ToolId =
   | 'image-to-pdf'
-  | 'merge-pdf'
   | 'pdf-splitter'
   | 'sign-pdf'
   | 'text-to-pdf'
@@ -34,14 +33,6 @@ export const TOOLS: Tool[] = [
     group: 'Create and edit',
     icon: Images,
     color: '#e8590c',
-  },
-  {
-    id: 'merge-pdf',
-    name: 'Merge PDF',
-    description: 'Combine several PDFs into one, in the order you choose.',
-    group: 'Create and edit',
-    icon: Merge,
-    color: '#65a30d',
   },
   {
     id: 'pdf-splitter',

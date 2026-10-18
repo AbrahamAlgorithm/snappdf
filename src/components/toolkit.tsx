@@ -221,7 +221,6 @@ export function UploadCard({
   formats,
   busy,
   extra,
-  notice,
 }: {
   tool: Tool;
   dropzone: Pick<DropzoneState, 'getRootProps' | 'getInputProps' | 'isDragActive' | 'open'>;
@@ -231,12 +230,10 @@ export function UploadCard({
   formats: string;
   busy?: string | null;
   extra?: ReactNode;
-  notice?: ReactNode;
 }) {
   const { getRootProps, getInputProps, isDragActive, open } = dropzone;
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
-      {notice}
       <div
         {...getRootProps({
           className: cn(

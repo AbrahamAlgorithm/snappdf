@@ -67,33 +67,6 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
   return { pageCount, previews };
 }
 
-// Just enough to show a PDF as a card: its page count and a small render of the first page.
-export async function getPdfCover(file: File): Promise<{ pageCount: number; cover: string }> {
-  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-  try {
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 0.6 });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    await page.render({ canvas, viewport }).promise;
-    return { pageCount: pdf.numPages, cover: canvas.toDataURL('image/jpeg', 0.75) };
-  } finally {
-    await pdf.destroy();
-  }
-}
-
-export async function mergePdfs(files: File[], onProgress?: (current: number, total: number) => void): Promise<Uint8Array> {
-  const merged = await PDFDocument.create();
-  for (let i = 0; i < files.length; i++) {
-    onProgress?.(i + 1, files.length);
-    const source = await PDFDocument.load(await files[i].arrayBuffer());
-    const pages = await merged.copyPages(source, source.getPageIndices());
-    pages.forEach((page) => merged.addPage(page));
-  }
-  return merged.save();
-}
-
 export async function extractPdfPages(file: File, pageIndices: number[]): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
   const srcDoc = await PDFDocument.load(arrayBuffer);
