@@ -12,9 +12,16 @@ export function isHeicFile(file: File): boolean {
   );
 }
 
-/**
- * Native Safari / iOS HEIC decoding attempt
- */
+// photo.heic -> photo.jpg
+function toJpgFile(blob: Blob, original: File): File {
+  const name = original.name.replace(/\.(heic|heif)$/i, '.jpg');
+  return new File([blob], name.endsWith('.jpg') ? name : `${name}.jpg`, {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  });
+}
+
+// safari can decode heic by itself
 async function tryNativeImageDecode(file: File): Promise<File | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
@@ -34,14 +41,7 @@ async function tryNativeImageDecode(file: File): Promise<File | null> {
         ctx.drawImage(img, 0, 0);
         canvas.toBlob((blob) => {
           URL.revokeObjectURL(url);
-          if (!blob) return resolve(null);
-          const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-          resolve(
-            new File([blob], newFileName.endsWith('.jpg') ? newFileName : `${newFileName}.jpg`, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            })
-          );
+          resolve(blob ? toJpgFile(blob, file) : null);
         }, 'image/jpeg', 0.92);
       } catch (e) {
         URL.revokeObjectURL(url);
@@ -58,9 +58,7 @@ async function tryNativeImageDecode(file: File): Promise<File | null> {
   });
 }
 
-/**
- * Decode HEIC using libheif-js
- */
+// libheif wasm decoder for chrome, firefox and edge
 async function decodeWithLibheif(file: File): Promise<File | null> {
   return new Promise(async (resolve) => {
     try {
@@ -110,17 +108,7 @@ async function decodeWithLibheif(file: File): Promise<File | null> {
         ctx.putImageData(decodedData, 0, 0);
 
         canvas.toBlob((blob) => {
-          if (!blob) return resolve(null);
-
-          const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-          const finalFileName = newFileName.endsWith('.jpg') ? newFileName : `${newFileName}.jpg`;
-
-          resolve(
-            new File([blob], finalFileName, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            })
-          );
+          resolve(blob ? toJpgFile(blob, file) : null);
         }, 'image/jpeg', 0.92);
       });
     } catch (err) {
@@ -135,19 +123,19 @@ export async function processFileForImageUpload(file: File): Promise<File> {
     return file;
   }
 
-  // 1. Try native browser decoding (Safari / iOS)
+  // try the browser first (safari)
   const nativeResult = await tryNativeImageDecode(file);
   if (nativeResult) {
     return nativeResult;
   }
 
-  // 2. Decode with libheif-js WASM decoder (Chrome / Firefox / Edge)
+  // then libheif
   const libheifResult = await decodeWithLibheif(file);
   if (libheifResult) {
     return libheifResult;
   }
 
-  // 3. Fallback: try heic2any
+  // last resort, heic2any
   try {
     const heic2anyMod = await import('heic2any');
     const fn = (heic2anyMod as any)?.default || heic2anyMod;
@@ -155,11 +143,7 @@ export async function processFileForImageUpload(file: File): Promise<File> {
       const result = await fn({ blob: file, toType: 'image/jpeg', quality: 0.9 });
       const resultBlob = Array.isArray(result) ? result[0] : result;
       if (resultBlob && resultBlob instanceof Blob) {
-        const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-        return new File([resultBlob], newFileName.endsWith('.jpg') ? newFileName : `${newFileName}.jpg`, {
-          type: 'image/jpeg',
-          lastModified: Date.now(),
-        });
+        return toJpgFile(resultBlob, file);
       }
     }
   } catch (heic2anyErr) {

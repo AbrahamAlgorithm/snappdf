@@ -1,7 +1,7 @@
-import { cn } from '@/src/lib/utils';
+import { cn } from '@/lib/utils';
 
-// A block-built "S": three bars joined on alternating sides, with the two outer corners cut at 45°.
-export const LOGO_PATH = 'M14 0H60V16H18V24H60V50L46 64H0V48H42V40H0V14Z';
+// the "S" logo mark
+const LOGO_PATH = 'M14 0H60V16H18V24H60V50L46 64H0V48H42V40H0V14Z';
 
 export function LogoMark({ className }: { className?: string }) {
   return (

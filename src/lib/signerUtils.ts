@@ -1,30 +1,27 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { getDocument } from '@/lib/pdfjs';
 
 export interface SignatureItem {
   id: string;
   url: string;
   name: string;
-  pageIndex: number; // 0-indexed
-  xPercent: number; // 0 to 100 (% of page width)
-  yPercent: number; // 0 to 100 (% of page height from top)
+  pageIndex: number; // 0-based
+  xPercent: number; // % of page width
+  yPercent: number; // % of page height, from the top
   widthPercent: number; // % of page width
   heightPercent: number; // % of page height
   aspectRatio: number; // width / height
-  rotation?: number; // rotation angle in degrees clockwise (0 to 360)
+  rotation?: number; // degrees clockwise
   removeWhiteBg?: boolean;
 }
 
-/**
- * Render a single PDF page at high quality to a data URL and returns dimensions
- */
+// render one page to a png data url
 export async function renderPdfPageHighRes(
   pdfData: ArrayBuffer | Uint8Array,
   pageIndex: number,
-  scale: number = 1.6
+  scale: number = 1.6,
 ): Promise<{ dataUrl: string; width: number; height: number }> {
-  const loadingTask = pdfjsLib.getDocument({ data: pdfData.slice(0) });
-  const pdf = await loadingTask.promise;
+  const pdf = await getDocument({ data: pdfData.slice(0) }).promise;
   const page = await pdf.getPage(pageIndex + 1);
 
   const viewport = page.getViewport({ scale });
@@ -37,10 +34,7 @@ export async function renderPdfPageHighRes(
     throw new Error('Canvas context could not be created');
   }
 
-  await page.render({
-    canvasContext: context,
-    viewport,
-  } as any).promise;
+  await page.render({ canvas, canvasContext: context, viewport }).promise;
 
   const dataUrl = canvas.toDataURL('image/png');
   return {
@@ -50,13 +44,10 @@ export async function renderPdfPageHighRes(
   };
 }
 
-/**
- * Converts an image URL (dataURL or blob URL) into PNG bytes for pdf-lib embedding.
- * Also optionally removes white/off-white background.
- */
+// image url to png bytes for pdf-lib, can also drop a white background
 export async function processSignatureToPngBytes(
   imageUrl: string,
-  removeWhiteBg: boolean = false
+  removeWhiteBg: boolean = false,
 ): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -78,9 +69,9 @@ export async function processSignatureToPngBytes(
             const r = d[i];
             const g = d[i + 1];
             const b = d[i + 2];
-            // If the pixel is very bright / white, make it transparent
+            // near-white pixels go transparent
             if (r > 220 && g > 220 && b > 220) {
-              d[i + 3] = 0; // alpha = 0
+              d[i + 3] = 0;
             }
           }
           ctx.putImageData(imgData, 0, 0);
@@ -100,12 +91,10 @@ export async function processSignatureToPngBytes(
   });
 }
 
-/**
- * Embeds signatures / overlays into a PDF at exact scale and coordinates
- */
+// stamp the signatures onto the pdf
 export async function embedSignaturesIntoPdf(
   sourcePdfBytes: ArrayBuffer | Uint8Array,
-  signatures: SignatureItem[]
+  signatures: SignatureItem[],
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(sourcePdfBytes, { ignoreEncryption: true });
 
@@ -122,12 +111,12 @@ export async function embedSignaturesIntoPdf(
       const pageWidth = page.getWidth();
       const pageHeight = page.getHeight();
 
-      // Convert percentages to PDF points
+      // percentages to pdf points
       const destWidth = (sig.widthPercent / 100) * pageWidth;
       const destHeight = (sig.heightPercent / 100) * pageHeight;
       const destX = (sig.xPercent / 100) * pageWidth;
 
-      // In PDF, (0,0) is bottom-left, so we flip the Y axis from top-left
+      // pdf y starts at the bottom, so flip it
       const destY = pageHeight - ((sig.yPercent / 100) * pageHeight) - destHeight;
 
       const rotDeg = ((sig.rotation || 0) % 360 + 360) % 360;
@@ -140,19 +129,16 @@ export async function embedSignaturesIntoPdf(
           height: destHeight,
         });
       } else {
-        // Calculate center of destination box in PDF coordinates
         const centerX = destX + destWidth / 2;
         const centerY = destY + destHeight / 2;
 
-        // In PDF coordinates (+y is UP), clockwise rotation corresponds to -rotDeg
+        // pdf y points up, so clockwise is negative
         const angleDeg = -rotDeg;
         const rad = (angleDeg * Math.PI) / 180;
 
-        // Vector from image origin (bottom-left) to its center rotated by angleDeg
+        // pdf-lib rotates around the bottom-left corner, so shift it to keep the center in place
         const dx = (destWidth / 2) * Math.cos(rad) - (destHeight / 2) * Math.sin(rad);
         const dy = (destWidth / 2) * Math.sin(rad) + (destHeight / 2) * Math.cos(rad);
-
-        // Position bottom-left so the rotated center aligns with (centerX, centerY)
         const drawX = centerX - dx;
         const drawY = centerY - dy;
 
@@ -172,20 +158,17 @@ export async function embedSignaturesIntoPdf(
   return await pdfDoc.save();
 }
 
-/**
- * Generates an official sample NDA / Contract document for testing the signature tool
- */
+// sample contract for the "try a sample" button
 export async function generateSampleContractPdf(): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  // Standard A4
-  const page = pdfDoc.addPage([595.28, 841.89]);
+  const page = pdfDoc.addPage([595.28, 841.89]); // A4
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
   const { width, height } = page.getSize();
 
-  // Header banner
+  // header
   page.drawRectangle({
     x: 40,
     y: height - 90,
@@ -202,7 +185,7 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
     color: rgb(1, 1, 1),
   });
 
-  // Metadata
+  // doc id and date
   page.drawText('DOCUMENT ID: DOC-2026-SP-9821', {
     x: 40,
     y: height - 110,
@@ -219,13 +202,13 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
     color: rgb(0.3, 0.3, 0.3),
   });
 
-  // Body content
+  // clauses
   const paragraphs = [
-    '1. PARTIES: This Agreement is entered into between SnapPDF Suite ("Disclosing Party") and the undersigned authorized representative ("Recipient"). Both parties covenant to act in good faith.',
+    '1. PARTIES: This Agreement is entered into between snappdf ("Disclosing Party") and the undersigned authorized representative ("Recipient"). Both parties covenant to act in good faith.',
     '2. CONFIDENTIALITY: Recipient agrees to preserve the absolute confidentiality of any proprietary diagrams, intellectual property, documentation, and source materials disclosed under this contract.',
     '3. PERMITTED USE: Information shall be handled exclusively for evaluating potential mutual collaboration and shall not be duplicated, reverse-engineered, or distributed without explicit prior written authorization.',
     '4. TERM & VALIDITY: The non-disclosure obligations shall endure for a period of three (3) years from execution. This instrument constitutes the entirety of the agreement between the parties.',
-    '5. ACKNOWLEDGEMENT: By affixing an official digital signature below, both parties confirm their legal capacity and intention to be bound by all stipulations set forth herein.'
+    '5. ACKNOWLEDGEMENT: By affixing an official digital signature below, both parties confirm their legal capacity and intention to be bound by all stipulations set forth herein.',
   ];
 
   let currentY = height - 145;
@@ -237,8 +220,8 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
       font: fontBold,
       color: rgb(0.1, 0.1, 0.1),
     });
-    
-    // Draw wrapped lines
+
+    // wrap the rest
     const textRemainder = para.slice(30);
     const words = textRemainder.split(' ');
     let line = '';
@@ -259,7 +242,7 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
     }
   }
 
-  // Signature Block
+  // signature box
   const sigBoxY = 130;
   page.drawRectangle({
     x: 40,
@@ -287,7 +270,7 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
     color: rgb(0.4, 0.4, 0.4),
   });
 
-  // Signature lines
+  // signature lines
   page.drawLine({
     start: { x: 55, y: sigBoxY + 30 },
     end: { x: 280, y: sigBoxY + 30 },
@@ -318,8 +301,8 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
     color: rgb(0.4, 0.4, 0.4),
   });
 
-  // Footer note
-  page.drawText('Generated securely with SnapPDF Document Suite • Client-Side Encryption', {
+  // footer
+  page.drawText('Sample document made with snappdf', {
     x: 40,
     y: 40,
     size: 8,
@@ -330,9 +313,7 @@ export async function generateSampleContractPdf(): Promise<Uint8Array> {
   return await pdfDoc.save();
 }
 
-/**
- * Converts an image file to a single-page PDF document
- */
+// one image as a one-page pdf
 export async function convertImageFileToPdfBytes(file: File): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.create();
@@ -343,7 +324,7 @@ export async function convertImageFileToPdfBytes(file: File): Promise<Uint8Array
   if (isPng) {
     embeddedImage = await pdfDoc.embedPng(arrayBuffer);
   } else {
-    // If not PNG, try JPG directly or convert via canvas
+    // try it as a jpg, otherwise go through a canvas
     try {
       embeddedImage = await pdfDoc.embedJpg(arrayBuffer);
     } catch {

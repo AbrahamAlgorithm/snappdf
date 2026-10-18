@@ -1,10 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
-
-// Configure PDF.js worker using a reliable CDN path matching the package version
-// unpkg is a direct mirror of npm and usually has the latest versions available immediately
-const PDFJS_VERSION = pdfjsLib.version;
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+import { getDocument } from '@/lib/pdfjs';
 
 export interface PdfMetadata {
   pageCount: number;
@@ -13,44 +8,37 @@ export interface PdfMetadata {
 
 export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
   const arrayBuffer = await file.arrayBuffer();
-  
-  // 1. Get accurate page count using pdf-lib (more reliable for metadata and works without worker)
+
+  // page count from pdf-lib, still works if pdf.js fails
   let pageCount = 0;
   try {
     const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
     pageCount = pdfDoc.getPageCount();
   } catch (e) {
-    console.error("pdf-lib metadata error", e);
+    console.error('pdf-lib metadata error', e);
   }
 
-  // 2. Load with PDF.js for rendering
+  // page previews from pdf.js
   const previews: string[] = [];
   try {
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-
-    // Use PDFJS page count if pdf-lib failed
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
     if (pageCount === 0) pageCount = pdf.numPages;
 
-    // Render initial batch of previews (up to 100 for balance)
-    const pagesToPreview = Math.min(pageCount, 100); 
+    // only preview the first 100 pages
+    const pagesToPreview = Math.min(pageCount, 100);
 
     for (let i = 1; i <= pagesToPreview; i++) {
       try {
         const page = await pdf.getPage(i);
-        const scale = 0.8;
-        const viewport = page.getViewport({ scale });
+        const viewport = page.getViewport({ scale: 0.8 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        
+
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
         if (context) {
-          await page.render({ 
-            canvasContext: context, 
-            viewport 
-          } as any).promise;
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
           previews.push(canvas.toDataURL('image/jpeg', 0.6));
         }
       } catch (e) {
@@ -59,11 +47,9 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
       }
     }
   } catch (e) {
-    console.error("PDF.js rendering error", e);
-    // If PDF.js fails completely, we still have the pageCount from step 1
+    console.error('PDF.js rendering error', e);
   }
 
-  // Final fallback
   return { pageCount, previews };
 }
 
@@ -89,12 +75,11 @@ export interface ImageItem {
 export async function imagesToPdf(
   images: ImageItem[],
   quality: number = 0.85,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
 
-  // Smart max dimension cap based on quality setting to prevent browser OOM crashes
-  // 1600px max dimension provides 200+ DPI on A4 and uses ~10x-20x less RAM per image
+  // cap the image size by quality so big photos don't crash the tab
   const maxDim = quality > 0.9 ? 2200 : quality > 0.75 ? 1600 : 1200;
 
   for (let i = 0; i < images.length; i++) {
@@ -108,7 +93,7 @@ export async function imagesToPdf(
       const { arrayBuffer, width, height } = await processImageForPdf(imgItem.url, quality, maxDim);
       const embeddedImage = await pdfDoc.embedJpg(arrayBuffer);
 
-      // Standard A4 dimensions in points: 595.28 x 841.89
+      // A4 in points
       const pageWidth = 595.28;
       const pageHeight = 841.89;
 
@@ -130,7 +115,7 @@ export async function imagesToPdf(
       console.error(`Error processing image ${i + 1} (${imgItem.name}):`, err);
     }
 
-    // Yield control back to browser main loop to keep UI smooth and allow Garbage Collection
+    // give the browser a breather between images
     await new Promise((r) => setTimeout(r, 10));
   }
 
@@ -140,11 +125,11 @@ export async function imagesToPdf(
 async function processImageForPdf(
   src: string,
   quality: number,
-  maxDim: number
+  maxDim: number,
 ): Promise<{ arrayBuffer: ArrayBuffer; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       let w = img.width;
       let h = img.height;
@@ -159,23 +144,23 @@ async function processImageForPdf(
         }
       }
 
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Could not get canvas context"));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Could not get canvas context'));
 
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, w, h);
 
       canvas.toBlob(
         async (blob) => {
-          // Immediately wipe canvas backing store to free GPU/RAM
+          // free the canvas memory right away
           canvas.width = 0;
           canvas.height = 0;
 
-          if (!blob) return reject(new Error("Failed to create blob from canvas"));
+          if (!blob) return reject(new Error('Failed to create blob from canvas'));
           try {
             const arrayBuffer = await blob.arrayBuffer();
             resolve({ arrayBuffer, width: w, height: h });
@@ -183,8 +168,8 @@ async function processImageForPdf(
             reject(e);
           }
         },
-        "image/jpeg",
-        quality
+        'image/jpeg',
+        quality,
       );
     };
     img.onerror = (e) => reject(new Error(`Failed to load image: ${e}`));

@@ -1,23 +1,20 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
-import { Logo, LogoMark } from '@/src/components/brand';
-import { GitHubStarButton } from '@/src/components/GitHubStarButton';
-import { PrivacyChip, ToolIcon } from '@/src/components/toolkit';
-import { APP_HREF, toolHref } from '@/src/lib/router';
-import { getTool, GITHUB_URL } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
-import { FileBar } from '@/src/pages/landing/FileBar';
-import { PrivacyShowcase } from '@/src/pages/landing/PrivacyShowcase';
-import { PHOTOS, ToolShowcase } from '@/src/pages/landing/ToolShowcase';
-import '@/src/pages/landing/landing.css';
+import { Logo, LogoMark } from '@/components/brand';
+import { GitHubStarButton } from '@/components/GitHubStarButton';
+import { PrivacyChip, ToolIcon } from '@/components/toolkit';
+import { APP_HREF, toolHref } from '@/lib/router';
+import { getTool, GITHUB_URL } from '@/lib/site';
+import { cn } from '@/lib/utils';
+import { FileBar } from '@/pages/landing/FileBar';
+import { PrivacyShowcase } from '@/pages/landing/PrivacyShowcase';
+import { PHOTOS, ToolShowcase } from '@/pages/landing/ToolShowcase';
+import '@/pages/landing/landing.css';
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
 
-// ---------------------------------------------------------------------------
-// Primitives
-// ---------------------------------------------------------------------------
-
+// fade up on scroll
 function Reveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
   return (
     <motion.div
@@ -32,42 +29,7 @@ function Reveal({ children, delay = 0, className }: { children: ReactNode; delay
   );
 }
 
-function ButtonLink({
-  href,
-  children,
-  tone = 'dark',
-  size = 'md',
-  className,
-  onClick,
-}: {
-  href?: string;
-  children: ReactNode;
-  tone?: 'dark' | 'light';
-  size?: 'md' | 'lg';
-  className?: string;
-  onClick?: () => void;
-}) {
-  const classes = cn(
-    'inline-flex items-center justify-center rounded-xl font-medium transition-colors',
-    size === 'lg' ? 'h-12 px-6 text-[15px]' : 'h-9 px-4 text-[14px]',
-    tone === 'dark' ? 'bg-ink text-canvas hover:bg-ink/85' : 'bg-subtle text-ink hover:bg-line',
-    className,
-  );
-  return href ? (
-    <a href={href} onClick={onClick} className={classes}>
-      {children}
-    </a>
-  ) : (
-    <button onClick={onClick} className={classes}>
-      {children}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Nav
-// ---------------------------------------------------------------------------
-
+// nav
 const NAV_LINKS = [
   { label: 'Tools', href: '#tools' },
   { label: 'Privacy', href: '#privacy' },
@@ -85,7 +47,7 @@ function Nav() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // The open menu covers the whole page, so the page underneath shouldn't scroll.
+  // lock page scroll while the mobile menu is open
   useEffect(() => {
     if (!menuOpen) return;
     const root = document.documentElement;
@@ -137,8 +99,7 @@ function Nav() {
         </div>
       </header>
 
-      {/* A sibling of the header, not a child: the header's backdrop blur would otherwise trap this
-          fixed layer inside the header's own box instead of the whole screen. */}
+      {/* menu lives outside the header, the header's blur would trap it */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -168,11 +129,7 @@ function Nav() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
-
-// The headline's PDF icon, drawn on a 100×100 grid; its slot clips it to a squircle.
+// hero
 function PdfIcon() {
   return (
     <svg viewBox="0 0 100 100" className="block size-full">
@@ -201,7 +158,7 @@ function Smiley() {
   );
 }
 
-// Sits in the headline in place of a space and opens to make room for its icon once the line has landed.
+// stands in for a space in the headline, then opens up to fit the icon
 function HeadlineSlot({ delay, children }: { delay: number; children: ReactNode }) {
   return (
     <span className="hero-slot" style={{ animationDelay: `${delay}ms` }}>
@@ -218,8 +175,7 @@ const HEADLINE_VARS = {
   '--icon-size': '0.85em',
   '--icon-drop': '0.075em',
   '--icon-gap': '0.2em',
-  // Width of one space in the headline (Geist 600, including the -0.05em tracking), so a closed
-  // slot reads exactly like the space it replaces.
+  // width of one space, so a closed slot looks like a normal space
   '--slot-closed': '0.2055em',
   '--slot-open': 'calc(var(--icon-size) + 2 * var(--icon-gap))',
 } as CSSProperties;
@@ -240,7 +196,7 @@ function HeadlineLine({ children, delay }: { children: ReactNode; delay: number 
 
 const PREVIEW_TOOL = getTool('image-to-pdf');
 
-// A still of the Image to PDF editor mid-job, framed like a product shot and cropped by its frame.
+// mock of the image to pdf editor
 function HeroPreview() {
   return (
     <motion.div
@@ -371,9 +327,12 @@ function Hero() {
           transition={{ duration: 0.8, delay: 0.38, ease: EASE }}
           className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:mt-10"
         >
-          <ButtonLink href={APP_HREF} size="lg" className="px-5 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6">
+          <a
+            href={APP_HREF}
+            className="inline-flex h-12 items-center justify-center rounded-xl bg-ink px-5 text-[15px] font-medium text-canvas transition-colors hover:bg-ink/85 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6"
+          >
             Start for free
-          </ButtonLink>
+          </a>
           <GitHubStarButton label="Star on GitHub" className="h-12 px-5 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6" />
         </motion.div>
       </div>
@@ -383,24 +342,13 @@ function Hero() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Two ways to use it
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// FAQ
-// ---------------------------------------------------------------------------
-
+// faq
 const FAQS: { q: string; a: ReactNode }[] = [
   { q: 'Is snappdf really free?', a: 'Yes. No trials, no watermarks, no premium tier. It’s open source, so it stays that way.' },
   { q: 'Are my files uploaded anywhere?', a: 'No. Every tool runs inside your browser, so your files never leave your device.' },
   {
-    q: 'What happens to my files in quick edit?',
-    a: 'They live only in your current browser tab. Refresh, close the tab or clear your browser data and they’re gone, so download your result before you leave.',
-  },
-  {
-    q: 'Why would I create an account?',
-    a: 'To keep documents, signatures and history saved between visits and across devices. Accounts are optional, free, and coming soon.',
+    q: 'What happens to my files when I’m done?',
+    a: 'They only live in your current browser tab. Refresh or close the tab and they’re gone, so download your result before you leave.',
   },
   {
     q: 'Which file types are supported?',
@@ -469,10 +417,7 @@ function Faq() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Footer
-// ---------------------------------------------------------------------------
-
+// footer
 function FooterColumn({ title, links }: { title: string; links: { label: string; href: string; external?: boolean }[] }) {
   return (
     <div>
@@ -538,12 +483,10 @@ function Footer() {
   );
 }
 
-// ---------------------------------------------------------------------------
-
 export default function Landing() {
-  // Warm up the (heavy) workspace bundle so opening a tool feels instant.
+  // preload the editors so tools open fast
   useEffect(() => {
-    const id = setTimeout(() => void import('@/src/pages/Workspace'), 1500);
+    const id = setTimeout(() => void import('@/pages/Workspace'), 1500);
     return () => clearTimeout(id);
   }, []);
 

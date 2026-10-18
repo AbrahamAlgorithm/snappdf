@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
-import { GitHubMark, Logo } from '@/src/components/brand';
-import { PrivacyChip, ToolIcon } from '@/src/components/toolkit';
-import { toolHref } from '@/src/lib/router';
-import { GITHUB_URL, TOOL_GROUPS, TOOLS } from '@/src/lib/site';
+import { GitHubMark, Logo } from '@/components/brand';
+import { PrivacyChip, ToolIcon } from '@/components/toolkit';
+import { toolHref } from '@/lib/router';
+import { GITHUB_URL, TOOL_GROUPS, TOOLS } from '@/lib/site';
 
 export default function Tools() {
-  // Warm up the (heavy) editor bundle while people choose, so a tool opens instantly.
+  // preload the editors while people pick, so a tool opens instantly
   useEffect(() => {
-    const id = setTimeout(() => void import('@/src/pages/Workspace'), 800);
+    const id = setTimeout(() => void import('@/pages/Workspace'), 800);
     return () => clearTimeout(id);
   }, []);
 

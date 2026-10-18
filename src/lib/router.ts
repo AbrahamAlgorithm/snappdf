@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { TOOLS, type ToolId } from '@/src/lib/site';
+import { TOOLS, type ToolId } from '@/lib/site';
 
-// `/` is the landing page, `/app` lists every tool and `/app/<tool>` opens that tool's editor; an
-// unknown tool falls back to the list. In production the host must serve index.html for these paths.
-
+// / is the landing, /app lists the tools, /app/<tool> opens one (the host has to serve index.html for these)
 export type Route = { name: 'landing' } | { name: 'tools' } | { name: 'tool'; tool: ToolId };
 
 export const APP_HREF = '/app';
@@ -26,8 +24,7 @@ function navigate(to: string) {
   window.dispatchEvent(new Event(NAVIGATED));
 }
 
-// Links to our own pages switch views without a reload. In-page anchors (#faq), new tabs,
-// downloads and modified clicks are left to the browser.
+// switch pages without a reload, leave anchors, new tabs and downloads to the browser
 function interceptLinkClick(e: MouseEvent) {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const link = (e.target as Element | null)?.closest('a');

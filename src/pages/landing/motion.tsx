@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState, type CSSProperties, type RefObject } from 'react';
 
-/* Flips to true once the element's top edge is 12% up into the viewport. threshold 0 plus a
-   rootMargin (not a visibility ratio) so it also fires for elements taller than the screen. */
+// true once the element is 12% into the viewport, uses rootMargin so tall sections work too
 export function useInView(ref: RefObject<Element | null>, { once = true, rootMargin = '0px 0px -12% 0px' } = {}) {
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -24,7 +23,7 @@ export function useInView(ref: RefObject<Element | null>, { once = true, rootMar
   return inView;
 }
 
-/* Counts up once per `ms` while `run` is true; the views use it to step through their story. */
+// counts up every `ms` while `run` is true, drives the demo animations
 export function useTicker(run: boolean, ms: number) {
   const [t, setT] = useState(0);
   useEffect(() => {
@@ -38,8 +37,7 @@ export function useTicker(run: boolean, ms: number) {
 type Part = { text: string; className?: string };
 export type Line = string | { parts: Part[] };
 
-/* Heading words that rise out of a mask, line by line, once an ancestor has .is-in.
-   A line is a string, or { parts } to style words within it (e.g. a grey tail). */
+// heading words that slide up into view once a parent gets .is-in
 export function SplitText({ lines, delay = 0, step = 110, duration = 1000 }: { lines: Line[]; delay?: number; step?: number; duration?: number }) {
   return (
     <>

@@ -14,11 +14,10 @@ import {
   Sheet,
   Smartphone,
 } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
-import { useInView } from '@/src/pages/landing/motion';
+import { cn } from '@/lib/utils';
+import { useInView } from '@/pages/landing/motion';
 
-/* Where a logo bar would go. snappdf has no customer logos to show, so the bar names the files
-   it works with instead, cycling between the formats and the everyday documents they hold. */
+// the files we work with, swaps between formats and everyday docs
 const SETS = [
   [
     [Image, 'JPG and PNG'],

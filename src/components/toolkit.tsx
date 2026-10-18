@@ -2,17 +2,13 @@ import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode 
 import { AnimatePresence, motion } from 'motion/react';
 import type { DropzoneState } from 'react-dropzone';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Upload, X } from 'lucide-react';
-import { APP_HREF } from '@/src/lib/router';
-import type { Tool } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
+import { APP_HREF } from '@/lib/router';
+import type { Tool } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
-/* The building blocks every tool page shares, so each editor reads the same way:
-   upload card → work area with a settings panel → one primary action. */
+// shared ui for the tool pages
 
-// ---------------------------------------------------------------------------
-// Basics
-// ---------------------------------------------------------------------------
-
+// basics
 const BUTTON_VARIANTS = {
   primary: 'bg-ink text-canvas hover:bg-ink/85',
   tonal: 'bg-subtle text-ink hover:bg-line',
@@ -132,10 +128,7 @@ export function PrivacyNote() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page layout
-// ---------------------------------------------------------------------------
-
+// layout
 export function ToolShell({ tool, children }: { tool: Tool; children: ReactNode }) {
   return (
     <div className="min-h-screen bg-subtle text-ink">
@@ -159,8 +152,7 @@ export function ToolShell({ tool, children }: { tool: Tool; children: ReactNode 
   );
 }
 
-// The work area: content on the left, settings on the right. On phones the panel's action sticks
-// to the bottom of the screen, so the content gets room underneath to scroll clear of it.
+// content left, settings right, on phones leave room for the sticky action at the bottom
 export function Workbench({ children, panel }: { children: ReactNode; panel?: ReactNode }) {
   return (
     <div className={cn('mx-auto flex max-w-[1400px] flex-col gap-4 p-3 sm:p-4 lg:flex-row lg:items-start lg:gap-5 lg:p-6', panel && 'pb-28 lg:pb-6')}>
@@ -276,10 +268,7 @@ export function UploadCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Overlays
-// ---------------------------------------------------------------------------
-
+// overlays
 function useEscape(active: boolean, onEscape: () => void) {
   const handler = useRef(onEscape);
   handler.current = onEscape;
@@ -305,8 +294,7 @@ export function Dialog({
   children: ReactNode;
 }) {
   useEscape(open, onClose);
-  // Only a press that starts and ends on the scrim closes the dialog, so a drag that strays off
-  // the content (say, while drawing a signature) doesn't throw the work away.
+  // only close if the press starts and ends on the backdrop, so a stray drag doesn't close it
   const pressedScrim = useRef(false);
   return (
     <AnimatePresence>
@@ -338,7 +326,7 @@ export function Dialog({
   );
 }
 
-// Asks for a file name before a download. `suggested` has no extension; an empty field uses it.
+// ask for a file name before downloading, `suggested` comes without the extension
 export function NameDialog({
   suggested,
   onCancel,
@@ -403,7 +391,7 @@ export function NameDialog({
   );
 }
 
-// Full-screen page preview with arrow-key paging. Pass `onToggle` to let people pick pages from here.
+// full screen page preview, arrow keys flip pages
 export function PageViewer({
   previews,
   count,

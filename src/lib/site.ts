@@ -24,7 +24,7 @@ export type Tool = {
   color: string;
 };
 
-// The one place a tool is registered: the tools page, the router and each editor's header read from here.
+// every tool is listed here, the tools page, router and editors all read from it
 export const TOOLS: Tool[] = [
   {
     id: 'image-to-pdf',

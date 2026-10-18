@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { Check, Copy, Download, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { DocumentSigner, type DocumentSignerRef } from '@/src/components/DocumentSigner';
-import { Button, IconButton, NameDialog, Panel, Spinner, Switch, ToolShell, Workbench } from '@/src/components/toolkit';
-import { getTool } from '@/src/lib/site';
-import { embedSignaturesIntoPdf, type SignatureItem } from '@/src/lib/signerUtils';
-import { cn } from '@/src/lib/utils';
+import { DocumentSigner, type DocumentSignerRef } from '@/components/DocumentSigner';
+import { Button, IconButton, NameDialog, Panel, Spinner, Switch, ToolShell, Workbench } from '@/components/toolkit';
+import { getTool } from '@/lib/site';
+import { embedSignaturesIntoPdf, type SignatureItem } from '@/lib/signerUtils';
+import { cn } from '@/lib/utils';
 
 const tool = getTool('sign-pdf');
 

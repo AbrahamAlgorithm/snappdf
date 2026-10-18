@@ -14,10 +14,10 @@ import {
   ToolShell,
   UploadCard,
   Workbench,
-} from '@/src/components/toolkit';
-import { extractPdfPages, getPdfMetadata } from '@/src/lib/pdfUtils';
-import { getTool } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
+} from '@/components/toolkit';
+import { extractPdfPages, getPdfMetadata } from '@/lib/pdfUtils';
+import { getTool } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
 const tool = getTool('pdf-splitter');
 

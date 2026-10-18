@@ -1,23 +1,22 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeftRight, ArrowRight, Check, FileImage, GripVertical, Minus, PenTool, Plus, RotateCw, Scissors, ShieldCheck } from 'lucide-react';
-import businessDocument from '@/src/assets/landing/business-document.jpg'; // CC0, stocksnap.io/photo/business-document-AB4F938C85
-import cafeReceipt from '@/src/assets/landing/cafe-receipt.jpg'; // CC0, stocksnap.io/photo/coffee-cafelatte-F9A95133A1
-import letterClipboard from '@/src/assets/landing/letter-clipboard.jpg'; // CC0, stocksnap.io/photo/office-work-UP9J4EZYNJ
-import parkingPermit from '@/src/assets/landing/parking-permit.jpg'; // CC0, flickr.com/photos/43296902@N00/14508511975
-import paymentScreenshot from '@/src/assets/landing/payment-screenshot.jpg';
-import receiptStack from '@/src/assets/landing/receipt-stack.jpg'; // CC0, rawpixel.com/image/5924546/receipts-table-free-public-domain-cc0-image
-import statementA from '@/src/assets/landing/statement-a.jpg';
-import statementB from '@/src/assets/landing/statement-b.jpg';
-import statementC from '@/src/assets/landing/statement-c.jpg';
-import statementCover from '@/src/assets/landing/statement-cover.jpg';
-import { LogoMark } from '@/src/components/brand';
-import { APP_HREF, toolHref } from '@/src/lib/router';
-import { cn } from '@/src/lib/utils';
-import { pad, SplitText, useInView, useTicker } from '@/src/pages/landing/motion';
+import businessDocument from '@/assets/landing/business-document.jpg'; // CC0, stocksnap.io/photo/business-document-AB4F938C85
+import cafeReceipt from '@/assets/landing/cafe-receipt.jpg'; // CC0, stocksnap.io/photo/coffee-cafelatte-F9A95133A1
+import letterClipboard from '@/assets/landing/letter-clipboard.jpg'; // CC0, stocksnap.io/photo/office-work-UP9J4EZYNJ
+import parkingPermit from '@/assets/landing/parking-permit.jpg'; // CC0, flickr.com/photos/43296902@N00/14508511975
+import paymentScreenshot from '@/assets/landing/payment-screenshot.jpg';
+import receiptStack from '@/assets/landing/receipt-stack.jpg'; // CC0, rawpixel.com/image/5924546/receipts-table-free-public-domain-cc0-image
+import statementA from '@/assets/landing/statement-a.jpg';
+import statementB from '@/assets/landing/statement-b.jpg';
+import statementC from '@/assets/landing/statement-c.jpg';
+import statementCover from '@/assets/landing/statement-cover.jpg';
+import { LogoMark } from '@/components/brand';
+import { APP_HREF, toolHref } from '@/lib/router';
+import { cn } from '@/lib/utils';
+import { pad, SplitText, useInView, useTicker } from '@/pages/landing/motion';
 
-/* The four tools, each shown working in the real workspace. The list on the left moves on by itself
-   until someone picks a tool; the window on the right plays that tool's job from start to finish. */
+// tool showcase, auto-plays each demo until someone picks a tool
 
 const TOOLS = [
   {
@@ -68,7 +67,7 @@ const TOOLS = [
 
 type ToolKey = (typeof TOOLS)[number]['id'];
 
-// The rail mirrors the real app's tool order.
+// same order as the real app
 const RAIL: { id: ToolKey; icon: typeof FileImage }[] = [
   { id: 'image-to-pdf', icon: FileImage },
   { id: 'pdf-splitter', icon: Scissors },
@@ -76,13 +75,12 @@ const RAIL: { id: ToolKey; icon: typeof FileImage }[] = [
   { id: 'sign-pdf', icon: PenTool },
 ];
 
-// The window is drawn at this width and scaled to fit its stage; phones get a narrower drawing
-// without the rail or side columns, so text stays legible.
+// window width before it's scaled to fit, phones get a narrower one
 const WIN_W = 720;
 const WIN_W_NARROW = 480;
 
 type ViewProps = { run: boolean; still: boolean };
-type Tone = 'ok' | 'review' | 'info' | 'none';
+type Tone = 'ok' | 'review' | 'none';
 
 function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
@@ -119,7 +117,7 @@ function Done({ title, note }: { title: string; note: string }) {
   );
 }
 
-/* ---------- images to PDF: phone photos of receipts become one PDF ---------- */
+// images to pdf demo
 
 export const PHOTOS: { name: string; size: string; src: string; fit?: 'contain'; heic?: number }[] = [
   { name: 'IMG_2041.HEIC', size: '2.1 MB', src: cafeReceipt, heic: 0 },
@@ -201,7 +199,7 @@ function ImagesView({ run, still }: ViewProps) {
   );
 }
 
-/* ---------- sign: the tenant signs on the last page ---------- */
+// sign demo
 
 const SIG_PATH =
   'M6 40C14 22 22 10 30 12s-6 34-2 34 14-30 22-30-4 24 2 24 10-18 18-18 0 16 8 16 12-20 20-20 2 16 10 16 14-14 22-14 6 10 14 10 18-10 30-14M24 52c46-6 104-8 168-12';
@@ -242,47 +240,47 @@ function SignView({ run, still }: ViewProps) {
       <div className="ts-sign">
         <div className="ts-canvas">
           <div className="ts-page">
-          <p className="ts-page-h">11. Ending the tenancy</p>
-          <p className="ts-page-p">
-            Either party may end this agreement by giving at least two months’ notice in writing. At the end of the tenancy the
-            Tenant must leave the Property clean, in good repair and free of their belongings, allowing for fair wear and tear.
-          </p>
-          <p className="ts-page-h">12. Keys and access</p>
-          <p className="ts-page-p">
-            The Tenant will receive two sets of keys and must return every set on the last day of the tenancy. The Landlord may
-            visit the Property with at least 24 hours’ notice, except in an emergency.
-          </p>
-          <p className="ts-page-h">13. Signatures</p>
-          <p className="ts-page-p">By signing below, the Landlord and the Tenant agree to the terms on pages 1 to 4 of this agreement.</p>
-          <div className="ts-sigs">
-            <div className="ts-sigline">
-              <Signature path={LANDLORD_PATH} className="ts-sig-done" />
-              <span>Landlord · signed 12 Mar</span>
+            <p className="ts-page-h">11. Ending the tenancy</p>
+            <p className="ts-page-p">
+              Either party may end this agreement by giving at least two months’ notice in writing. At the end of the tenancy the
+              Tenant must leave the Property clean, in good repair and free of their belongings, allowing for fair wear and tear.
+            </p>
+            <p className="ts-page-h">12. Keys and access</p>
+            <p className="ts-page-p">
+              The Tenant will receive two sets of keys and must return every set on the last day of the tenancy. The Landlord may
+              visit the Property with at least 24 hours’ notice, except in an emergency.
+            </p>
+            <p className="ts-page-h">13. Signatures</p>
+            <p className="ts-page-p">By signing below, the Landlord and the Tenant agree to the terms on pages 1 to 4 of this agreement.</p>
+            <div className="ts-sigs">
+              <div className="ts-sigline">
+                <Signature path={LANDLORD_PATH} className="ts-sig-done" />
+                <span>Landlord · signed 12 Mar</span>
+              </div>
+              <div className={cn('ts-sigline is-target', onPage && 'is-sel')}>
+                {onPage ? <Signature className="ts-sig-ink ts-landed" /> : <span className="ts-ask">Click to sign here</span>}
+                {onPage && (
+                  <>
+                    <i className="ts-h1" />
+                    <i className="ts-h2" />
+                    <i className="ts-h3" />
+                    <i className="ts-h4" />
+                    <span className="ts-tool">
+                      <Minus />
+                      26% W
+                      <Plus />
+                      <s />
+                      <RotateCw />
+                      <s />
+                      Clear BG
+                      <s />
+                      <b>Done</b>
+                    </span>
+                  </>
+                )}
+                <span>Tenant</span>
+              </div>
             </div>
-            <div className={cn('ts-sigline is-target', onPage && 'is-sel')}>
-              {onPage ? <Signature className="ts-sig-ink ts-landed" /> : <span className="ts-ask">Click to sign here</span>}
-              {onPage && (
-                <>
-                  <i className="ts-h1" />
-                  <i className="ts-h2" />
-                  <i className="ts-h3" />
-                  <i className="ts-h4" />
-                  <span className="ts-tool">
-                    <Minus />
-                    26% W
-                    <Plus />
-                    <s />
-                    <RotateCw />
-                    <s />
-                    Clear BG
-                    <s />
-                    <b>Done</b>
-                  </span>
-                </>
-              )}
-              <span>Tenant</span>
-            </div>
-          </div>
           </div>
         </div>
 
@@ -322,7 +320,7 @@ function SignView({ run, still }: ViewProps) {
   );
 }
 
-/* ---------- split: three months of statement pages, then one more ---------- */
+// split demo
 
 const STATEMENT_PAGES = [statementA, statementB, statementC];
 
@@ -379,7 +377,7 @@ function SplitView({ run, still }: ViewProps) {
   );
 }
 
-/* ---------- convert: a quarterly report becomes an editable Word file ---------- */
+// convert demo
 
 const MODULES = [
   ['PDF to Word', 'PDF → DOCX'],
@@ -476,7 +474,7 @@ export function ToolShowcase() {
   const tool = TOOLS[sel];
   const View = VIEWS[tool.id];
 
-  // Scale the window to its stage; a little of it always runs off the right edge.
+  // scale the window to fit, a bit of it always runs off the right edge
   useLayoutEffect(() => {
     const el = stageRef.current;
     if (!el) return;

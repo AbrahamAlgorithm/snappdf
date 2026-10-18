@@ -1,12 +1,11 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Ban, CloudOff, Laptop, LoaderCircle, ScanSearch, ShieldCheck } from 'lucide-react';
-import { GITHUB_URL } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
-import { SplitText, useInView, useTicker } from '@/src/pages/landing/motion';
+import { GITHUB_URL } from '@/lib/site';
+import { cn } from '@/lib/utils';
+import { SplitText, useInView, useTicker } from '@/pages/landing/motion';
 
-/* Privacy, shown rather than promised: the signing tool works through a contract while the
-   browser's network panel, docked underneath, records nothing going out. The story loops. */
+// privacy demo: signing a contract while the network panel shows nothing going out
 
 const GREEN = '#1d8348';
 

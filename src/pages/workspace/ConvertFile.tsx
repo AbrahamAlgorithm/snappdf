@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useDropzone, type Accept } from 'react-dropzone';
 import { ArrowRight, Check, Download, Eye } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { Button, FileRow, formatSize, NameDialog, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/src/components/toolkit';
-import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx, textToPdf } from '@/src/lib/convUtils';
-import { getPdfMetadata } from '@/src/lib/pdfUtils';
-import { getTool, type ToolId } from '@/src/lib/site';
+import { Button, FileRow, formatSize, NameDialog, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
+import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx, textToPdf } from '@/lib/convUtils';
+import { getPdfMetadata } from '@/lib/pdfUtils';
+import { getTool, type ToolId } from '@/lib/site';
 
 export type ConvertMode = Extract<ToolId, 'pdf-to-word' | 'csv-to-excel' | 'json-to-excel' | 'json-to-csv' | 'text-to-pdf'>;
 
@@ -100,7 +100,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
       setFile(picked);
       setResult(null);
       setFailed(false);
-      // PDF to Word keeps page previews so the result can be checked against the original.
+      // keep page previews for pdf to word, so people can check the result
       if (mode === 'pdf-to-word' && picked.type === 'application/pdf') {
         try {
           const meta = await getPdfMetadata(picked);

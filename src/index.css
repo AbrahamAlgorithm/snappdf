@@ -4,25 +4,22 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-canvas: #ffffff;  /* page background; also text on ink/brand fills */
-  --color-subtle: #f4f4f5;  /* recessed: workspace canvas, inputs, soft cards */
-  --color-card: #ffffff;    /* raised: cards, bars, modals */
-  --color-line: #e7e7e9;    /* hairline borders */
-  --color-ink: #0b0b0c;     /* foreground */
-  --color-brand: #0b0b0c;   /* primary buttons and emphasis */
-  --color-lime: #52ff00;    /* highlight; always paired with dark text */
-  --color-paper: #ffffff;   /* real document paper: PDF pages, signature pad */
+  --color-canvas: #ffffff;  /* page background */
+  --color-subtle: #f4f4f5;  /* inputs, soft cards, workspace background */
+  --color-card: #ffffff;    /* cards, bars, modals */
+  --color-line: #e7e7e9;    /* borders */
+  --color-ink: #0b0b0c;     /* text */
+  --color-lime: #52ff00;    /* highlight, always on dark text */
+  --color-paper: #ffffff;   /* pdf pages, signature pad */
 }
 
-/* Re-scope the palette for dark islands (the workspace side panel, floating toolbars, footer).
-   Utilities read these variables, so everything inside flips without per-element classes. */
+/* dark and light sections, everything inside flips with the variables */
 .theme-dark {
   --color-canvas: #141416;
   --color-subtle: #0d0d0f;
   --color-card: #1f1f22;
   --color-line: #2e2e33;
   --color-ink: #f2f2f3;
-  --color-brand: #f2f2f3;
   color-scheme: dark;
   color: var(--color-ink);
 }
@@ -33,7 +30,6 @@
   --color-card: #ffffff;
   --color-line: #e7e7e9;
   --color-ink: #0b0b0c;
-  --color-brand: #0b0b0c;
   color-scheme: light;
   color: var(--color-ink);
 }
@@ -41,8 +37,7 @@
 @layer base {
   html,
   body {
-    /* Stops the rubber-band bounce past the top/bottom edge, which would otherwise reveal the
-       body's own background (white) behind the dark footer when overscrolling. */
+    /* no overscroll bounce, it shows white behind the dark footer */
     overscroll-behavior-y: none;
   }
 
@@ -54,7 +49,7 @@
     @apply bg-canvas text-ink font-sans antialiased;
   }
 
-  /* Soft corners on every control; utilities like rounded-full still win. */
+  /* soft corners on controls, rounded-full etc still win */
   button,
   select,
   textarea,
@@ -74,9 +69,7 @@
   }
 }
 
-/* Landing headline slots (adapted from mobbin.com's hero). A slot stands in for the space between
-   two words, opens once its line has landed, then pops a tile in. Sizes come from CSS variables
-   set on the h1, so everything scales with the headline's font size. */
+/* hero headline slot: opens up like a space, then pops the icon in */
 @keyframes hero-slot-open {
   from {
     width: var(--slot-closed);
@@ -129,7 +122,7 @@
   user-select: none;
 }
 
-/* The smiley after "Zero paywalls." leans back at 45°; it spins into place once its line lands. */
+/* hero smiley, spins in and leans back 45° */
 @keyframes hero-smile-in {
   from {
     opacity: 0;
@@ -161,17 +154,4 @@
   .hero-slot {
     width: var(--slot-open);
   }
-}
-
-.styled-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.styled-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.styled-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-line rounded-full;
-}
-.styled-scrollbar::-webkit-scrollbar-thumb:hover {
-  @apply bg-ink/30;
 }

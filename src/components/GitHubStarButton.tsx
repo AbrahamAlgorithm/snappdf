@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { GitHubMark } from '@/src/components/brand';
-import { GITHUB_REPO, GITHUB_URL } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
+import { GitHubMark } from '@/components/brand';
+import { GITHUB_REPO, GITHUB_URL } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
 const CACHE_KEY = 'snappdf:github-stars';
 
-// Unauthenticated GitHub API calls are rate-limited, so cache the count for the session.
+// github rate limits us, so cache the star count for the session
 function useGitHubStars() {
   const [stars, setStars] = useState<number | null>(() => {
     try {
@@ -27,7 +27,7 @@ function useGitHubStars() {
         try {
           sessionStorage.setItem(CACHE_KEY, String(data.stargazers_count));
         } catch {
-          // Storage unavailable (private mode); the count just won't be cached.
+          // no storage (private mode), skip the cache
         }
       })
       .catch(() => {});
@@ -41,15 +41,7 @@ function formatCount(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
 }
 
-export function GitHubStarButton({
-  className,
-  label = 'Star',
-  tone = 'light',
-}: {
-  className?: string;
-  label?: string;
-  tone?: 'light' | 'dark';
-}) {
+export function GitHubStarButton({ className, label = 'Star' }: { className?: string; label?: string }) {
   const stars = useGitHubStars();
 
   return (
@@ -58,18 +50,13 @@ export function GitHubStarButton({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[15px] font-medium transition-colors',
-        tone === 'light' ? 'bg-subtle text-ink hover:bg-line' : 'bg-ink text-canvas hover:bg-ink/85',
+        'inline-flex h-9 items-center gap-2 rounded-xl bg-subtle px-3.5 text-[15px] font-medium text-ink transition-colors hover:bg-line',
         className,
       )}
     >
       <GitHubMark className="size-4" />
       {label}
-      {stars !== null && (
-        <span className={cn('font-mono text-[13px]', tone === 'light' ? 'text-ink/50' : 'text-canvas/60')}>
-          {formatCount(stars)}
-        </span>
-      )}
+      {stars !== null && <span className="font-mono text-[13px] text-ink/50">{formatCount(stars)}</span>}
     </a>
   );
 }

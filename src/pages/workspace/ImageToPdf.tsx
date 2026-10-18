@@ -27,11 +27,11 @@ import {
   ToolShell,
   UploadCard,
   Workbench,
-} from '@/src/components/toolkit';
-import { isHeicFile, processFileForImageUpload } from '@/src/lib/heicUtils';
-import { imagesToPdf } from '@/src/lib/pdfUtils';
-import { getTool } from '@/src/lib/site';
-import { cn, cropImage, imageToCanvas, rotateImage } from '@/src/lib/utils';
+} from '@/components/toolkit';
+import { isHeicFile, processFileForImageUpload } from '@/lib/heicUtils';
+import { imagesToPdf } from '@/lib/pdfUtils';
+import { getTool } from '@/lib/site';
+import { cn, cropImage, imageToCanvas, rotateImage } from '@/lib/utils';
 
 type ImageData = {
   id: string;
@@ -137,7 +137,7 @@ export default function ImageToPdf() {
   );
 
   const onDrop = useCallback(async (accepted: File[], rejections: FileRejection[] = []) => {
-    // Some browsers report HEIC photos with an empty or unexpected MIME type; let those through too.
+    // some browsers give heic photos an empty or odd mime type, let them through
     const lookLikeImages = rejections
       .map((r) => r.file)
       .filter((file) => isHeicFile(file) || (file.type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp|heic|heif|tiff|svg)$/i.test(file.name));

@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Check, ChevronLeft, ChevronRight, Copy, Eraser, FileText, Minus, PenLine, Plus, RotateCcw, RotateCw, Sparkles, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
-import { Button, Dialog, IconButton, Spinner, UploadCard } from '@/src/components/toolkit';
-import { convertImageFileToPdfBytes, generateSampleContractPdf, renderPdfPageHighRes, type SignatureItem } from '@/src/lib/signerUtils';
-import { getPdfMetadata } from '@/src/lib/pdfUtils';
-import { getTool } from '@/src/lib/site';
-import { cn } from '@/src/lib/utils';
+import { Button, Dialog, IconButton, Spinner, UploadCard } from '@/components/toolkit';
+import { convertImageFileToPdfBytes, generateSampleContractPdf, renderPdfPageHighRes, type SignatureItem } from '@/lib/signerUtils';
+import { getPdfMetadata } from '@/lib/pdfUtils';
+import { getTool } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
 export interface DocumentSignerRef {
   updateSignature: (id: string, updates: Partial<SignatureItem>) => void;
@@ -44,16 +44,16 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
   { onDocumentChange, selectedSigId: propSelectedSigId, onSelectSigId },
   ref,
 ) {
-  // Document state
+  // document
   const [docBytes, setDocBytes] = useState<Uint8Array | null>(null);
   const [docName, setDocName] = useState<string>('');
   const [pageCount, setPageCount] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(0); // 0-based
   const [renderedPageUrl, setRenderedPageUrl] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState<boolean>(false);
-  const [docAspect, setDocAspect] = useState<number>(1 / 1.414); // default A4 width/height
+  const [docAspect, setDocAspect] = useState<number>(1 / 1.414); // A4 until the page renders
 
-  // Signatures state
+  // signatures
   const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [internalSelectedSigId, setInternalSelectedSigId] = useState<string | null>(null);
 
@@ -68,7 +68,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     [onSelectSigId],
   );
 
-  // A signature that was just added or picked from the list, to bring into view once it renders.
+  // scroll a new or picked signature into view
   const [revealId, setRevealId] = useState<string | null>(null);
   useEffect(() => {
     if (!revealId) return;
@@ -76,11 +76,11 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     setRevealId(null);
   }, [revealId]);
 
-  const [zoomLevel, setZoomLevel] = useState<number>(100); // 70 to 150 %
+  const [zoomLevel, setZoomLevel] = useState<number>(100); // 70-150%
   const [rotationPreviewAngle, setRotationPreviewAngle] = useState<number | null>(null);
   const [isRotating, setIsRotating] = useState<boolean>(false);
 
-  // Draw pad
+  // draw pad
   const [isDrawModalOpen, setIsDrawModalOpen] = useState(false);
   const [penColor, setPenColor] = useState('#111111');
   const [penWidth, setPenWidth] = useState(3);
@@ -104,7 +104,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     aspectRatio: number;
   } | null>(null);
 
-  // Render the current page whenever the document or page changes
+  // render the current page
   useEffect(() => {
     if (!docBytes || pageCount === 0) return;
     let isCancelled = false;
@@ -120,12 +120,12 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     };
   }, [docBytes, currentPage, pageCount]);
 
-  // Keep the page around it in sync for the side panel and the download
+  // keep the side panel and download in sync
   useEffect(() => {
     onDocumentChange?.(docBytes, docName, signatures, activeSelectedId);
   }, [docBytes, docName, signatures, activeSelectedId, onDocumentChange]);
 
-  // Keyboard controls for the selected signature (nudge, rotate, scale, delete, deselect)
+  // keyboard shortcuts for the selected signature
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || isDrawModalOpen) return;
@@ -150,7 +150,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
         return;
       }
 
-      const step = e.shiftKey ? 2 : 0.5; // percent
+      const step = e.shiftKey ? 2 : 0.5; // %
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         updateSignature(activeSelectedId, { xPercent: Math.max(0, currentSig.xPercent - step) });
@@ -325,8 +325,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     updateSignature(sigId, { rotation: ((((sig.rotation || 0) + deltaAngle) % 360) + 360) % 360 });
   };
 
-  // No dependency list: the handle has to see the latest signatures, or the panel's size and
-  // rotation controls would act on a stale copy.
+  // no deps on purpose, so the side panel always acts on the latest signatures
   React.useImperativeHandle(ref, () => ({
     updateSignature,
     removeSignature,
@@ -340,7 +339,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     openDrawPad,
   }));
 
-  // Drag to move
+  // drag to move
   const handleSigPointerDown = (e: React.PointerEvent, sig: SignatureItem) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -366,7 +365,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     window.addEventListener('pointerup', handlePointerUp);
   };
 
-  // Drag a corner to resize, keeping the signature's proportions
+  // drag a corner to resize, keeps the ratio
   const handleResizePointerDown = (e: React.PointerEvent, sig: SignatureItem, c: 'se' | 'sw' | 'ne' | 'nw') => {
     e.stopPropagation();
     setSelectedSigId(sig.id);
@@ -451,7 +450,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     window.addEventListener('pointerup', handlePointerUp);
   };
 
-  // Drag the top handle to rotate; hold Shift to snap to 15°
+  // drag the top handle to rotate, shift snaps to 15°
   const handleRotatePointerDown = (e: React.PointerEvent, sig: SignatureItem) => {
     e.stopPropagation();
     setSelectedSigId(sig.id);
@@ -463,7 +462,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
 
     const handlePointerMove = (moveEvt: PointerEvent) => {
       const rad = Math.atan2(moveEvt.clientY - centerY, moveEvt.clientX - centerX);
-      // atan2 is 0 at 3 o'clock; the handle sits at 12 o'clock.
+      // atan2 starts at 3 o'clock, the handle is at 12
       let deg = (((Math.round((rad * 180) / Math.PI) + 90) % 360) + 360) % 360;
       if (moveEvt.shiftKey) deg = (Math.round(deg / 15) * 15) % 360;
       setRotationPreviewAngle(deg);
@@ -479,7 +478,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     window.addEventListener('pointerup', handlePointerUp);
   };
 
-  // Draw pad
+  // drawing on the pad
   const pointOnCanvas = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -596,7 +595,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
             </Button>
           </div>
 
-          {/* Clicking the backdrop or the page itself deselects */}
+          {/* click the backdrop or the page to deselect */}
           <div onClick={() => setSelectedSigId(null)} className="flex select-none justify-center pb-4 pt-6 sm:pt-8">
             {isLoadingDoc || !renderedPageUrl ? (
               <div role="status" className="flex flex-col items-center gap-4 py-24 text-[15px] text-ink/60">
@@ -698,7 +697,7 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                             <div onPointerDown={(e) => handleResizePointerDown(e, sig, 'sw')} className={cn(corner, '-bottom-[7px] -left-[7px] cursor-nesw-resize')} />
                             <div onPointerDown={(e) => handleResizePointerDown(e, sig, 'se')} className={cn(corner, '-bottom-[7px] -right-[7px] cursor-nwse-resize')} />
 
-                            {/* Counter-rotated so the toolbar stays level whatever the signature's angle */}
+                            {/* counter-rotate so the toolbar stays level */}
                             <div
                               onPointerDown={(e) => e.stopPropagation()}
                               onClick={(e) => e.stopPropagation()}

@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { MotionConfig } from 'motion/react';
-import { LogoMark } from '@/src/components/brand';
-import { useRoute } from '@/src/lib/router';
-import Landing from '@/src/pages/Landing';
-import Tools from '@/src/pages/Tools';
+import { LogoMark } from '@/components/brand';
+import { useRoute } from '@/lib/router';
+import Landing from '@/pages/Landing';
+import Tools from '@/pages/Tools';
 
-// The workspace pulls in pdf.js, pdf-lib, docx, xlsx and HEIC decoders; keep them out of the landing bundle.
-const Workspace = lazy(() => import('@/src/pages/Workspace'));
+// lazy load the editors, they pull in the heavy pdf and office libs
+const Workspace = lazy(() => import('@/pages/Workspace'));
 
 function WorkspaceFallback() {
   return (
@@ -21,7 +21,7 @@ export default function App() {
   const page = route.name === 'tool' ? route.tool : route.name;
   const previousPage = useRef(page);
 
-  // Start each page at the top, but leave in-page anchors (#faq) and the initial load alone.
+  // scroll to top when the page changes, but not on first load or #anchors
   useEffect(() => {
     if (previousPage.current !== page) window.scrollTo({ top: 0, behavior: 'instant' });
     previousPage.current = page;

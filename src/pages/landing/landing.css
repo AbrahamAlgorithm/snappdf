@@ -1,9 +1,4 @@
-/* ==========================================================================
-   Landing sections in the style of Cribra's home page: scroll entrances,
-   headline words that rise out of a mask, the file bar, the tool showcase
-   and the privacy stage. Scoped under .lp (the landing page's <main>).
-   ========================================================================== */
-
+/* landing page sections, scoped under .lp (the landing <main>) */
 .lp {
   --ink: #0b0b0c;
   --ink-2: #3a3a3d;
@@ -13,9 +8,7 @@
   --line: #e7e7e9;
   --line-2: #d2d2d7;
   --ok: #1d8348;
-  --bad: #d23b2d;
   --review: #b7791f;
-  --info: #6e6e73;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, Menlo, monospace;
@@ -23,10 +16,9 @@
 }
 .lp [data-tone="ok"] { --tone: var(--ok); }
 .lp [data-tone="review"] { --tone: var(--review); }
-.lp [data-tone="info"] { --tone: var(--info); }
 .lp [data-tone="none"] { --tone: var(--mute); }
 
-/* ---------- entrances: an ancestor gets .is-in when it scrolls into view ---------- */
+/* scroll-in animations, a parent gets .is-in once it's in view */
 .lp .ent {
   opacity: 0;
   transform: translate3d(var(--x, 0), var(--y, 16px), 0) scale(var(--s, 1));
@@ -58,9 +50,7 @@
 @keyframes lp-swap { from { opacity: 0; transform: translateY(4px); } }
 @keyframes lp-pop { from { opacity: 0; transform: scale(0.6); } }
 
-/* ==========================================================================
-   File bar (where a logo bar would go)
-   ========================================================================== */
+/* file bar */
 .lp .fb { padding: 4px 0 0; text-align: center; }
 .lp .fb-tag { font: 450 15px/1.4 var(--sans); letter-spacing: -0.01em; color: var(--mute-2); }
 .lp .fb-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; max-width: 1120px; margin: 26px auto 0; }
@@ -89,10 +79,7 @@
 .lp .fb-mark.is-off { opacity: 0; transform: translateY(10px); filter: blur(5px); }
 .lp .fb-item:hover .fb-mark { color: var(--ink); }
 
-/* ==========================================================================
-   Shared window parts: a stage (dotted, with a coloured glow) holding an app
-   window drawn at --ww wide and scaled by --ws to fit
-   ========================================================================== */
+/* app window mockup on a dotted stage, drawn --ww wide and scaled by --ws to fit */
 .lp .lp-stage {
   --ws: 1;
   --left: 40px;
@@ -145,7 +132,7 @@
   transform: scale(var(--ws));
   transform-origin: 0 0;
 }
-/* the window runs a little off the stage's right edge, so its right side is padding */
+/* the window runs off the right edge, so pad the right side */
 .lp .lp-chrome { display: flex; align-items: center; gap: 14px; height: 42px; flex: none; padding: 0 44px 0 14px; border-bottom: 1px solid var(--line); }
 .lp .lp-dots { display: flex; gap: 6px; }
 .lp .lp-dots i { width: 9px; height: 9px; border-radius: 50%; background: #e2e2e6; }
@@ -220,21 +207,19 @@
 .lp .lp-done b { display: block; overflow: hidden; font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .lp .lp-done em { display: block; margin-top: 3px; overflow: hidden; font-size: 11px; font-style: normal; color: var(--mute); text-overflow: ellipsis; white-space: nowrap; }
 
-/* phones: the window is drawn narrower, without the dots or the middle of the breadcrumb */
+/* phones: narrower window, no dots */
 .lp .lp-stage.is-narrow .lp-dots,
 .lp .lp-stage.is-narrow .lp-mid { display: none; }
 .lp .lp-stage.is-narrow .lp-chrome { padding-right: 36px; }
 
-/* ==========================================================================
-   Tool showcase: the four tools, each doing its job in the workspace
-   ========================================================================== */
+/* tool showcase */
 .lp .ts { padding: 120px 0 104px; }
 .lp .ts-grid { display: grid; gap: 36px; margin-top: 52px; }
 @media (min-width: 1024px) {
   .lp .ts-grid { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); align-items: center; gap: 56px; }
 }
 
-/* the tools: a ruled list; the open one explains itself and runs a progress line */
+/* tool list, the open one runs a progress line */
 .lp .ts-side { text-align: left; }
 .lp .ts-list { border-bottom: 1px solid var(--line); }
 .lp .ts-item { position: relative; border-top: 1px solid var(--line); }
@@ -273,7 +258,7 @@
 .lp .ts-more li { display: flex; gap: 10px; font: 400 14.5px/1.4 var(--sans); color: var(--ink-2); }
 .lp .ts-more li svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--c); }
 
-/* the stage: a window onto the workspace, a little of it running off the right and bottom */
+/* the stage, the window runs off the right and bottom */
 .lp .ts-stage { height: calc(var(--left) + 548px * var(--ws)); }
 @media (max-width: 1023px) { .lp .ts-stage { order: -1; } }
 .lp .ts-app { display: grid; flex: 1; min-height: 0; grid-template-columns: 52px minmax(0, 1fr); }
@@ -290,12 +275,9 @@
 .lp .ts-rail > .ts-logo { margin-bottom: 8px; color: var(--ink); }
 .lp .ts-view { position: relative; min-width: 0; padding: 20px 52px 20px 24px; animation: lp-in 0.5s var(--ease) both; }
 .lp .ts-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 44px; margin-top: 14px; }
-.lp .lp-win i.w40 { width: 40%; }
 .lp .lp-win i.w60 { width: 60%; }
-.lp .lp-win i.w70 { width: 70%; }
-.lp .lp-win i.w80 { width: 80%; }
 
-/* images to PDF: phone photos of receipts on desks and tables */
+/* images to pdf */
 .lp .ts-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .lp .ts-card {
   display: grid;
@@ -329,7 +311,7 @@
 .lp .ts-build > span { height: 5px; overflow: hidden; border-radius: 3px; background: #eeeef1; }
 .lp .ts-build b { display: block; height: 100%; border-radius: 3px; background: var(--ink); transition: width 0.45s var(--ease); }
 
-/* sign: the last page of an agreement, on the workspace's grey canvas */
+/* sign */
 .lp .ts-zoom { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; font: 500 11.5px/1 var(--mono); color: var(--ink-2); }
 .lp .ts-zoom svg { width: 12px; height: 12px; color: var(--mute); }
 .lp .ts-sign { display: grid; grid-template-columns: minmax(0, 1fr) 192px; gap: 16px; margin-top: 16px; }
@@ -405,7 +387,7 @@
 .lp .ts-panel-foot { display: flex; margin-top: auto; }
 .lp .lp-btn.ts-wide { justify-content: center; width: 100%; height: 36px; }
 
-/* split: a bank statement, pages picked as a range and one more */
+/* split */
 .lp .ts-range { display: inline-flex; flex: none; align-items: center; gap: 6px; font-size: 11.5px; color: var(--mute); }
 .lp .ts-range em { font-style: normal; }
 .lp .ts-range > span { display: grid; place-items: center; width: 30px; height: 26px; border: 1px solid var(--line); border-radius: 7px; font: 500 11.5px/1 var(--mono); color: var(--ink); }
@@ -452,7 +434,7 @@
 .lp .ts-chips em { margin-right: 4px; font-size: 12px; font-style: normal; color: var(--mute); }
 .lp .ts-chips b { display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px; background: color-mix(in srgb, var(--c) 12%, #fff); font: 500 11px/1 var(--mono); color: var(--c); animation: lp-pop 0.35s var(--ease) both; }
 
-/* convert: the converter's modules on the left, the job on the right */
+/* convert */
 .lp .ts-conv { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .lp .ts-mods { display: grid; align-content: start; gap: 6px; }
 .lp .ts-mod { display: grid; gap: 5px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
@@ -481,7 +463,7 @@
 .lp .ts-read b { display: block; height: 100%; border-radius: 3px; background: var(--c); transition: width 0.4s var(--ease); }
 .lp .lp-btn.is-busy { background: color-mix(in srgb, var(--c) 14%, #fff); color: var(--c); }
 
-/* phones: no rail, no side columns */
+/* phones: no rail or side columns */
 .lp .ts-stage.is-narrow .ts-app { grid-template-columns: minmax(0, 1fr); }
 .lp .ts-stage.is-narrow .ts-rail,
 .lp .ts-stage.is-narrow .lp-count,
@@ -495,9 +477,7 @@
 .lp .ts-stage.is-narrow .ts-conv { grid-template-columns: minmax(0, 1fr); }
 .lp .ts-stage.is-narrow .ts-pages { gap: 12px 8px; }
 
-/* ==========================================================================
-   Privacy: the tool at work above, the browser's network panel below
-   ========================================================================== */
+/* privacy: the tool on top, the browser's network panel below */
 .lp .pv { padding: 112px 0 120px; }
 .lp .pv-grid { display: grid; gap: 44px; }
 @media (min-width: 1024px) {
@@ -573,7 +553,7 @@
 .lp .pv-fact b { display: block; font: 560 16px/1.3 var(--sans); letter-spacing: -0.02em; }
 .lp .pv-fact p { margin-top: 4px; font: 400 14.5px/1.5 var(--sans); color: var(--mute); text-wrap: pretty; }
 
-/* phones: drop the busier bits of the panel */
+/* phones: hide the busier bits */
 .lp .pv-stage.is-narrow .pv-app { padding-right: 36px; }
 .lp .pv-stage.is-narrow .pv-stat:first-child,
 .lp .pv-stage.is-narrow .pv-row em,
@@ -581,7 +561,7 @@
 .lp .pv-stage.is-narrow .pv-tabs span:nth-child(n + 5) { display: none; }
 .lp .pv-stage.is-narrow .pv-row { grid-template-columns: 54px minmax(0, 1fr) auto; }
 
-/* ---------- reduced motion: everything lands in its final state ---------- */
+/* reduced motion: skip straight to the end state */
 @media (prefers-reduced-motion: reduce) {
   .lp .ent,
   .lp .wm > span { opacity: 1; transform: none; transition: none; }

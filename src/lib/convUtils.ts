@@ -1,30 +1,23 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-
-// Configure PDF.js worker using same version as main lib
-const PDFJS_VERSION = pdfjsLib.version;
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+import { getDocument } from '@/lib/pdfjs';
 
 export async function pdfToDocx(file: File): Promise<Blob> {
   const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-  const pdf = await loadingTask.promise;
-  
+  const pdf = await getDocument({ data: arrayBuffer }).promise;
+
   const sections = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     const items = textContent.items as any[];
-    
-    // Sort items by vertical position (top to bottom) then horizontal (left to right)
-    // transform[5] is Y coordinate, transform[4] is X coordinate
+
+    // top to bottom, then left to right (transform[4] is x, transform[5] is y)
     items.sort((a, b) => {
       const yDiff = b.transform[5] - a.transform[5];
-      if (Math.abs(yDiff) < 5) { // Roughly same line
+      if (Math.abs(yDiff) < 5) {
         return a.transform[4] - b.transform[4];
       }
       return yDiff;
@@ -32,52 +25,53 @@ export async function pdfToDocx(file: File): Promise<Blob> {
 
     const pageChildren: Paragraph[] = [];
 
-    // Estimate points to twips conversion (Word uses twips: 1/1440 inch, PDF uses points: 1/72 inch)
-    // 1 point = 20 twips
+    // word uses twips, 1 pt = 20 twips
     const PT_TO_TWIP = 20;
-    const LEFT_MARGIN_OFFSET = items.length > 0 ? Math.min(...items.map(it => it.transform[4])) : 0;
+    const LEFT_MARGIN_OFFSET = items.length > 0 ? Math.min(...items.map((it) => it.transform[4])) : 0;
 
     let lastY = -1;
     let currentLineItems: any[] = [];
 
     const processLine = (lineItems: any[]) => {
       if (lineItems.length === 0) return;
-      
-      // Sort items in line by X
+
       lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
-      
+
       const firstItem = lineItems[0];
       const indentation = Math.max(0, (firstItem.transform[4] - LEFT_MARGIN_OFFSET) * PT_TO_TWIP);
       const fontSize = Math.abs(firstItem.transform[0]);
-      
+
       const children: TextRun[] = [];
       let lastX = firstItem.transform[4];
-      
+
       for (const it of lineItems) {
+        // fill big gaps with spaces
         const gap = it.transform[4] - lastX;
-        if (gap > 4) { // Meaningful horizontal gap
-          const charWidth = fontSize * 0.35; // Heuristic
+        if (gap > 4) {
+          const charWidth = fontSize * 0.35;
           const spaceCount = Math.max(1, Math.floor(gap / charWidth));
-          children.push(new TextRun({ text: " ".repeat(spaceCount), size: fontSize * 2 }));
+          children.push(new TextRun({ text: ' '.repeat(spaceCount), size: fontSize * 2 }));
         }
-        
-        children.push(new TextRun({
-          text: it.str,
-          size: fontSize * 2,
-        }));
-        
-        // Update lastX to the end of this item if width is available
-        const itemWidth = it.width || 0;
-        lastX = it.transform[4] + itemWidth;
+
+        children.push(
+          new TextRun({
+            text: it.str,
+            size: fontSize * 2,
+          }),
+        );
+
+        lastX = it.transform[4] + (it.width || 0);
       }
-      
-      pageChildren.push(new Paragraph({
-        children: children,
-        indent: { left: indentation },
-        spacing: { 
-          before: lastY !== -1 ? Math.max(0, (lastY - firstItem.transform[5] - fontSize * 1.2) * PT_TO_TWIP) : 0 
-        },
-      }));
+
+      pageChildren.push(
+        new Paragraph({
+          children: children,
+          indent: { left: indentation },
+          spacing: {
+            before: lastY !== -1 ? Math.max(0, (lastY - firstItem.transform[5] - fontSize * 1.2) * PT_TO_TWIP) : 0,
+          },
+        }),
+      );
     };
 
     for (const item of items) {
@@ -94,8 +88,8 @@ export async function pdfToDocx(file: File): Promise<Blob> {
     sections.push({
       properties: {
         page: {
-          margin: { top: 720, right: 720, bottom: 720, left: 720 }, // 0.5 inch margins
-        }
+          margin: { top: 720, right: 720, bottom: 720, left: 720 }, // 0.5 inch
+        },
       },
       children: pageChildren,
     });
@@ -120,7 +114,7 @@ export async function jsonToExcel(file: File): Promise<Blob> {
   const jsonData = JSON.parse(text);
   const worksheet = XLSX.utils.json_to_sheet(Array.isArray(jsonData) ? jsonData : [jsonData]);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
@@ -137,10 +131,10 @@ export async function textToPdf(file: File): Promise<Uint8Array> {
   const text = await file.text();
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  
+
   const lines = text.split('\n');
   let page = pdfDoc.addPage();
-  const { width, height } = page.getSize();
+  const { height } = page.getSize();
   const fontSize = 12;
   const margin = 50;
   let y = height - margin;
