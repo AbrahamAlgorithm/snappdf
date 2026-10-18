@@ -32,6 +32,7 @@ import { isHeicFile, processFileForImageUpload } from '@/lib/heicUtils';
 import { imagesToPdf } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { cn, cropImage, imageToCanvas, rotateImage } from '@/lib/utils';
+import { useReportWork } from '@/lib/work';
 
 type ImageData = {
   id: string;
@@ -129,6 +130,7 @@ export default function ImageToPdf() {
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  useReportWork(tool.id, images.length > 0);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -171,6 +173,11 @@ export default function ImageToPdf() {
     } catch (err) {
       console.error('Rotate error', err);
     }
+  };
+
+  const startOver = () => {
+    images.forEach((img) => img.url.startsWith('blob:') && URL.revokeObjectURL(img.url));
+    setImages([]);
   };
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -293,10 +300,15 @@ export default function ImageToPdf() {
             </h2>
             <p className="mt-0.5 text-[14px] text-ink/55">Drag to change the page order.</p>
           </div>
-          <Button variant="outline" onClick={dropzone.open} disabled={!!busy}>
-            <ImagePlus size={18} />
-            Add images
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" onClick={startOver} disabled={!!busy || !!progress}>
+              Start over
+            </Button>
+            <Button variant="outline" onClick={dropzone.open} disabled={!!busy}>
+              <ImagePlus size={18} />
+              Add images
+            </Button>
+          </div>
         </div>
 
         {busy && (

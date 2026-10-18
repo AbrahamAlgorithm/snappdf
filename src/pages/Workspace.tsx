@@ -4,7 +4,6 @@ import ImageToPdf from '@/pages/workspace/ImageToPdf';
 import SignPdf from '@/pages/workspace/SignPdf';
 import SplitPdf from '@/pages/workspace/SplitPdf';
 
-// one page per tool, App remounts it so state doesn't leak between tools
 export default function Workspace({ tool }: { tool: ToolId }) {
   switch (tool) {
     case 'image-to-pdf':

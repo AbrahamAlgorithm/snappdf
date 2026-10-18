@@ -3,8 +3,11 @@ import { GitHubMark, Logo } from '@/components/brand';
 import { PrivacyChip, ToolIcon } from '@/components/toolkit';
 import { toolHref } from '@/lib/router';
 import { GITHUB_URL, TOOL_GROUPS, TOOLS } from '@/lib/site';
+import { useToolsInProgress } from '@/lib/work';
 
 export default function Tools() {
+  const inProgress = useToolsInProgress();
+
   // preload the editors while people pick, so a tool opens instantly
   useEffect(() => {
     const id = setTimeout(() => void import('@/pages/Workspace'), 800);
@@ -50,7 +53,15 @@ export default function Tools() {
                   >
                     <ToolIcon tool={tool} />
                     <span className="min-w-0">
-                      <span className="block text-[16px] font-semibold tracking-[-0.02em] sm:mt-1">{tool.name}</span>
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[16px] font-semibold tracking-[-0.02em] sm:mt-1">
+                        {tool.name}
+                        {inProgress.includes(tool.id) && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2 py-0.5 text-[12px] font-medium tracking-normal text-ink/65">
+                            <span className="size-1.5 rounded-full" style={{ backgroundColor: tool.color }} />
+                            In progress
+                          </span>
+                        )}
+                      </span>
                       <span className="mt-1 block text-[14px] leading-snug text-ink/55">{tool.description}</span>
                     </span>
                   </a>

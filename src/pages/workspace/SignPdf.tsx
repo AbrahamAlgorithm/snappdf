@@ -6,6 +6,7 @@ import { Button, IconButton, NameDialog, Panel, Spinner, Switch, ToolShell, Work
 import { getTool } from '@/lib/site';
 import { embedSignaturesIntoPdf, type SignatureItem } from '@/lib/signerUtils';
 import { cn } from '@/lib/utils';
+import { useReportWork } from '@/lib/work';
 
 const tool = getTool('sign-pdf');
 
@@ -23,6 +24,7 @@ export default function SignPdf() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  useReportWork(tool.id, !!docBytes);
 
   const onDocumentChange = useCallback((bytes: Uint8Array | null, name: string, sigs: SignatureItem[], selected?: string | null) => {
     setDocBytes(bytes);

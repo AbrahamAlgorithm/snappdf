@@ -6,6 +6,7 @@ import { Button, FileRow, formatSize, NameDialog, PageViewer, PrivacyNote, Spinn
 import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx, textToPdf } from '@/lib/convUtils';
 import { getPdfMetadata } from '@/lib/pdfUtils';
 import { getTool, type ToolId } from '@/lib/site';
+import { useReportWork } from '@/lib/work';
 
 export type ConvertMode = Extract<ToolId, 'pdf-to-word' | 'csv-to-excel' | 'json-to-excel' | 'json-to-csv' | 'text-to-pdf'>;
 
@@ -90,6 +91,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   const [result, setResult] = useState<{ blob: Blob; name: string } | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  useReportWork(mode, !!file);
 
   const dropzone = useDropzone({
     accept: config.accept,

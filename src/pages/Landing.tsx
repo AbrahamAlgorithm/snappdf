@@ -348,7 +348,7 @@ const FAQS: { q: string; a: ReactNode }[] = [
   { q: 'Are my files uploaded anywhere?', a: 'No. Every tool runs inside your browser, so your files never leave your device.' },
   {
     q: 'What happens to my files when I’m done?',
-    a: 'They only live in your current browser tab. Refresh or close the tab and they’re gone, so download your result before you leave.',
+    a: 'They stay in your browser tab while you work, even if you switch between tools. Refresh or close the tab and they’re gone, so download your result before you leave.',
   },
   {
     q: 'Which file types are supported?',

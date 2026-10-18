@@ -18,6 +18,7 @@ import {
 import { extractPdfPages, getPdfMetadata } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
+import { useReportWork } from '@/lib/work';
 
 const tool = getTool('pdf-splitter');
 
@@ -43,6 +44,7 @@ export default function SplitPdf() {
   const [viewing, setViewing] = useState<number | null>(null);
   const [range, setRange] = useState({ from: '', to: '' });
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  useReportWork(tool.id, !!file);
 
   const onDrop = useCallback(async (files: File[]) => {
     const picked = files[0];

@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { Activity, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { MotionConfig } from 'motion/react';
 import { LogoMark } from '@/components/brand';
 import { useRoute } from '@/lib/router';
+import type { ToolId } from '@/lib/site';
 import Landing from '@/pages/Landing';
 import Tools from '@/pages/Tools';
 
@@ -21,6 +22,10 @@ export default function App() {
   const page = route.name === 'tool' ? route.tool : route.name;
   const previousPage = useRef(page);
 
+  // once opened, a tool stays alive (just hidden) so its work survives switching tools until the tab closes
+  const [opened, setOpened] = useState<ToolId[]>([]);
+  if (route.name === 'tool' && !opened.includes(route.tool)) setOpened([...opened, route.tool]);
+
   // scroll to top when the page changes, but not on first load or #anchors
   useEffect(() => {
     if (previousPage.current !== page) window.scrollTo({ top: 0, behavior: 'instant' });
@@ -29,15 +34,15 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      {route.name === 'tool' ? (
-        <Suspense fallback={<WorkspaceFallback />}>
-          <Workspace key={route.tool} tool={route.tool} />
-        </Suspense>
-      ) : route.name === 'tools' ? (
-        <Tools />
-      ) : (
-        <Landing />
-      )}
+      {route.name === 'tools' && <Tools />}
+      {route.name === 'landing' && <Landing />}
+      {opened.map((tool) => (
+        <Activity key={tool} mode={tool === page ? 'visible' : 'hidden'}>
+          <Suspense fallback={<WorkspaceFallback />}>
+            <Workspace tool={tool} />
+          </Suspense>
+        </Activity>
+      ))}
     </MotionConfig>
   );
 }
