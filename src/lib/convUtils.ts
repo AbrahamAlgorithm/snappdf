@@ -1,11 +1,10 @@
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
-import { getDocument } from '@/lib/pdfjs';
+import { openPdf } from '@/lib/pdfjs';
 
 export async function pdfToDocx(file: File): Promise<Blob> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await getDocument({ data: arrayBuffer }).promise;
+  const pdf = await openPdf(file);
 
   const sections = [];
 

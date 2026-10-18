@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Check, ChevronLeft, ChevronRight, Copy, Eraser, FileText, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, Dialog, IconButton, Spinner, UploadCard } from '@/components/toolkit';
-import { convertImageFileToPdfBytes, renderPdfPageHighRes, type SignatureItem } from '@/lib/signerUtils';
-import { getPdfMetadata } from '@/lib/pdfUtils';
+import { closePdf, openPdf } from '@/lib/pdfjs';
+import { renderPageImage } from '@/lib/pdfUtils';
+import { convertImageFileToPdfBytes, type SignatureItem } from '@/lib/signerUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
 
@@ -104,19 +105,23 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     aspectRatio: number;
   } | null>(null);
 
-  // render the current page
+  // render the current page sharp enough for the biggest zoom on this screen
+  const shownPage = useRef<{ bytes: Uint8Array; page: number; url: string } | null>(null);
   useEffect(() => {
     if (!docBytes || pageCount === 0) return;
-    let isCancelled = false;
-    renderPdfPageHighRes(docBytes, currentPage, 1.8)
-      .then(({ dataUrl, width, height }) => {
-        if (isCancelled) return;
-        setRenderedPageUrl(dataUrl);
-        if (width && height) setDocAspect(width / height);
+    if (shownPage.current?.bytes === docBytes && shownPage.current.page === currentPage) return;
+    let cancelled = false;
+    renderPageImage(docBytes, currentPage, Math.min(900, window.innerWidth))
+      .then(({ url, width, height }) => {
+        if (cancelled) return URL.revokeObjectURL(url);
+        if (shownPage.current) URL.revokeObjectURL(shownPage.current.url);
+        shownPage.current = { bytes: docBytes, page: currentPage, url };
+        setRenderedPageUrl(url);
+        setDocAspect(width / height);
       })
-      .catch((err) => console.error('Failed to render PDF page', err));
+      .catch((err) => !cancelled && console.error('Failed to render PDF page', err));
     return () => {
-      isCancelled = true;
+      cancelled = true;
     };
   }, [docBytes, currentPage, pageCount]);
 
@@ -183,13 +188,18 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     setCurrentPage(0);
     setSignatures([]);
     setSelectedSigId(null);
+    closePdf(docBytes);
+    let bytes: Uint8Array | null = null;
     try {
       // a photo of a document becomes a one-page pdf
-      const bytes = file.type.startsWith('image/') ? await convertImageFileToPdfBytes(file) : new Uint8Array(await file.arrayBuffer());
+      bytes = file.type.startsWith('image/') ? await convertImageFileToPdfBytes(file) : new Uint8Array(await file.arrayBuffer());
+      const pdf = await openPdf(bytes);
       setDocBytes(bytes);
-      const meta = await getPdfMetadata(new File([bytes], file.name, { type: 'application/pdf' }));
-      setPageCount(meta.pageCount || 1);
+      setPageCount(pdf.numPages);
     } catch (err) {
+      closePdf(bytes);
+      setDocBytes(null);
+      setPageCount(0);
       console.error('Failed to load document file:', err);
     } finally {
       setIsLoadingDoc(false);

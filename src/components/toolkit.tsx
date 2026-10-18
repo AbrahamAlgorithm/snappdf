@@ -396,6 +396,7 @@ export function PageViewer({
   onClose,
   selected,
   onToggle,
+  renderPage,
 }: {
   previews: string[];
   count: number;
@@ -404,13 +405,50 @@ export function PageViewer({
   onClose: () => void;
   selected?: boolean;
   onToggle?: () => void;
+  renderPage?: (index: number, width: number, height: number) => Promise<string>;
 }) {
   const open = index !== null;
   useEscape(open, onClose);
 
-  // a click anywhere but the page or a button closes the preview
+  // show the small thumbnail right away, then swap in a sharp render that fits the screen
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [sharp, setSharp] = useState<{ index: number; url: string } | null>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (index === null) return setSharp(null);
+    if (!renderPage || !stage) return;
+    const pad = getComputedStyle(stage);
+    const width = stage.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+    const height = stage.clientHeight - parseFloat(pad.paddingTop) - parseFloat(pad.paddingBottom);
+    let cancelled = false;
+    renderPage(index, width, height)
+      .then((url) => (cancelled ? URL.revokeObjectURL(url) : setSharp({ index, url })))
+      .catch((err) => !cancelled && console.error('Page render error', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [index, renderPage]);
+
+  // free the old render once it's replaced or the preview closes
+  useEffect(() => {
+    if (!sharp) return;
+    return () => URL.revokeObjectURL(sharp.url);
+  }, [sharp]);
+
+  const src = sharp?.index === index ? sharp.url : index !== null ? previews[index] : undefined;
+
+  // a click anywhere but the page or a button closes the preview, including the empty space around the page
   const pressedOutside = useRef(false);
-  const isOutside = (target: EventTarget) => !(target as Element).closest('[data-page], button');
+  const isOutside = (e: { target: EventTarget; clientX: number; clientY: number }) => {
+    const el = e.target as Element;
+    if (el.closest('button')) return false;
+    if (!(el instanceof HTMLImageElement)) return !el.closest('[data-page]');
+    const box = el.getBoundingClientRect();
+    const scale = Math.min(box.width / el.naturalWidth, box.height / el.naturalHeight);
+    const padX = (box.width - el.naturalWidth * scale) / 2;
+    const padY = (box.height - el.naturalHeight * scale) / 2;
+    return e.clientX < box.left + padX || e.clientX > box.right - padX || e.clientY < box.top + padY || e.clientY > box.bottom - padY;
+  };
 
   useEffect(() => {
     if (index === null) return;
@@ -433,8 +471,8 @@ export function PageViewer({
           role="dialog"
           aria-modal="true"
           aria-label={`Page ${index + 1} of ${count}`}
-          onPointerDown={(e) => (pressedOutside.current = isOutside(e.target))}
-          onClick={(e) => pressedOutside.current && isOutside(e.target) && onClose()}
+          onPointerDown={(e) => (pressedOutside.current = isOutside(e))}
+          onClick={(e) => pressedOutside.current && isOutside(e) && onClose()}
           className="fixed inset-0 z-[100] flex flex-col bg-[#18181b] text-white"
         >
           <div className="flex h-16 shrink-0 items-center gap-3 px-3 sm:px-5">
@@ -455,7 +493,7 @@ export function PageViewer({
               </Button>
             )}
           </div>
-          <div className="relative flex min-h-0 flex-1 items-center justify-center px-14 pb-6 sm:px-20">
+          <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center px-14 pb-6 sm:px-20">
             <IconButton
               label="Previous page"
               disabled={index === 0}
@@ -464,13 +502,13 @@ export function PageViewer({
             >
               <ChevronLeft size={22} />
             </IconButton>
-            {previews[index] ? (
+            {src ? (
               <img
                 key={index}
                 data-page
-                src={previews[index]}
+                src={src}
                 alt={`Page ${index + 1}`}
-                className="max-h-full max-w-full rounded-sm bg-white object-contain shadow-2xl"
+                className="size-full object-contain drop-shadow-2xl"
               />
             ) : (
               <div data-page className="flex aspect-[3/4] h-full max-h-[70vh] items-center justify-center rounded-sm bg-white/5">

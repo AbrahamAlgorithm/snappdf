@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
-import { getDocument } from '@/lib/pdfjs';
+import { openPdf } from '@/lib/pdfjs';
 
 export interface PdfMetadata {
   pageCount: number;
@@ -18,10 +18,11 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
     console.error('pdf-lib metadata error', e);
   }
 
-  // page previews from pdf.js
+  // page thumbnails from pdf.js, sized for the page grid on this screen
   const previews: string[] = [];
+  const thumbWidth = 260 * Math.min(window.devicePixelRatio || 1, 2);
   try {
-    const pdf = await getDocument({ data: arrayBuffer }).promise;
+    const pdf = await openPdf(file);
     if (pageCount === 0) pageCount = pdf.numPages;
 
     // only preview the first 100 pages
@@ -30,7 +31,7 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
     for (let i = 1; i <= pagesToPreview; i++) {
       try {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.8 });
+        const viewport = page.getViewport({ scale: thumbWidth / page.getViewport({ scale: 1 }).width });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
 
@@ -39,7 +40,7 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
 
         if (context) {
           await page.render({ canvas, canvasContext: context, viewport }).promise;
-          previews.push(canvas.toDataURL('image/jpeg', 0.6));
+          previews.push(canvas.toDataURL('image/jpeg', 0.85));
         }
       } catch (e) {
         console.warn(`Failed to render preview for page ${i}`, e);
@@ -51,6 +52,29 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
   }
 
   return { pageCount, previews };
+}
+
+// render a page as a sharp png that fills a width x height box (css px) on this screen
+export async function renderPageImage(source: File | Uint8Array, index: number, width: number, height = Infinity) {
+  const pdf = await openPdf(source);
+  const page = await pdf.getPage(index + 1);
+  const base = page.getViewport({ scale: 1 });
+  const fit = Math.min(width / base.width, height / base.height) * Math.min(window.devicePixelRatio || 1, 3);
+  // cap the long side so huge pages don't eat memory
+  const viewport = page.getViewport({ scale: Math.min(fit, 3000 / Math.max(base.width, base.height)) });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not get canvas context');
+  await page.render({ canvas, canvasContext: context, viewport }).promise;
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  canvas.width = 0;
+  canvas.height = 0;
+  if (!blob) throw new Error('Could not render page');
+  return { url: URL.createObjectURL(blob), width: viewport.width, height: viewport.height };
 }
 
 export async function extractPdfPages(file: File, pageIndices: number[]): Promise<Uint8Array> {

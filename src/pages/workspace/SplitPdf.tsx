@@ -15,7 +15,8 @@ import {
   UploadCard,
   Workbench,
 } from '@/components/toolkit';
-import { extractPdfPages, getPdfMetadata } from '@/lib/pdfUtils';
+import { closePdf } from '@/lib/pdfjs';
+import { extractPdfPages, getPdfMetadata, renderPageImage } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
@@ -65,6 +66,15 @@ export default function SplitPdf() {
 
   const dropzone = useDropzone({ onDrop, accept: { 'application/pdf': ['.pdf'] }, multiple: false });
 
+  // sharp page renders for the full screen preview
+  const renderPage = useCallback(
+    async (index: number, width: number, height: number) => {
+      if (!file) throw new Error('No file open');
+      return (await renderPageImage(file, index, width, height)).url;
+    },
+    [file],
+  );
+
   const toggle = (index: number) =>
     setSelected((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index].sort((a, b) => a - b)));
 
@@ -92,6 +102,7 @@ export default function SplitPdf() {
   };
 
   const reset = () => {
+    closePdf(file);
     setFile(null);
     setPreviews([]);
     setPageCount(0);
@@ -257,6 +268,7 @@ export default function SplitPdf() {
         onClose={() => setViewing(null)}
         selected={viewing !== null && selected.includes(viewing)}
         onToggle={() => viewing !== null && toggle(viewing)}
+        renderPage={renderPage}
       />
 
       <NameDialog

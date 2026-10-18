@@ -1,5 +1,4 @@
 import { PDFDocument, degrees } from 'pdf-lib';
-import { getDocument } from '@/lib/pdfjs';
 
 export interface SignatureItem {
   id: string;
@@ -13,35 +12,6 @@ export interface SignatureItem {
   aspectRatio: number; // width / height
   rotation?: number; // degrees clockwise
   removeWhiteBg?: boolean;
-}
-
-// render one page to a png data url
-export async function renderPdfPageHighRes(
-  pdfData: ArrayBuffer | Uint8Array,
-  pageIndex: number,
-  scale: number = 1.6,
-): Promise<{ dataUrl: string; width: number; height: number }> {
-  const pdf = await getDocument({ data: pdfData.slice(0) }).promise;
-  const page = await pdf.getPage(pageIndex + 1);
-
-  const viewport = page.getViewport({ scale });
-  const canvas = document.createElement('canvas');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const context = canvas.getContext('2d');
-
-  if (!context) {
-    throw new Error('Canvas context could not be created');
-  }
-
-  await page.render({ canvas, canvasContext: context, viewport }).promise;
-
-  const dataUrl = canvas.toDataURL('image/png');
-  return {
-    dataUrl,
-    width: viewport.width,
-    height: viewport.height,
-  };
 }
 
 // image url to png bytes for pdf-lib, can also drop a white background

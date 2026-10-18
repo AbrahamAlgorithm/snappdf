@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone, type Accept } from 'react-dropzone';
 import { ArrowRight, Check, Download, Eye } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Button, FileRow, formatSize, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
 import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx } from '@/lib/convUtils';
-import { getPdfMetadata } from '@/lib/pdfUtils';
+import { closePdf } from '@/lib/pdfjs';
+import { getPdfMetadata, renderPageImage } from '@/lib/pdfUtils';
 import { getTool, type ToolId } from '@/lib/site';
 import { useReportWork } from '@/lib/work';
 
@@ -118,7 +119,17 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
     }
   };
 
+  // sharp page renders for the full screen preview
+  const renderPage = useCallback(
+    async (index: number, width: number, height: number) => {
+      if (!file) throw new Error('No file open');
+      return (await renderPageImage(file, index, width, height)).url;
+    },
+    [file],
+  );
+
   const reset = () => {
+    closePdf(file);
     setFile(null);
     setResult(null);
     setFailed(false);
@@ -214,7 +225,14 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
         <PrivacyNote />
       </div>
 
-      <PageViewer previews={previews} count={pageCount} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} />
+      <PageViewer
+        previews={previews}
+        count={pageCount}
+        index={viewing}
+        onIndex={setViewing}
+        onClose={() => setViewing(null)}
+        renderPage={renderPage}
+      />
     </ToolShell>
   );
 }
