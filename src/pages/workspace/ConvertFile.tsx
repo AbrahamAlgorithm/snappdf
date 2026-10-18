@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useDropzone, type Accept } from 'react-dropzone';
 import { ArrowRight, Check, Download, Eye } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { Button, FileRow, formatSize, NameDialog, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
-import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx, textToPdf } from '@/lib/convUtils';
+import { Button, FileRow, formatSize, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
+import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx } from '@/lib/convUtils';
 import { getPdfMetadata } from '@/lib/pdfUtils';
 import { getTool, type ToolId } from '@/lib/site';
 import { useReportWork } from '@/lib/work';
 
-export type ConvertMode = Extract<ToolId, 'pdf-to-word' | 'csv-to-excel' | 'json-to-excel' | 'json-to-csv' | 'text-to-pdf'>;
+export type ConvertMode = Extract<ToolId, 'pdf-to-word' | 'csv-to-excel' | 'json-to-excel' | 'json-to-csv'>;
 
 type ModeConfig = {
   accept: Accept;
@@ -19,7 +19,7 @@ type ModeConfig = {
   noun: string;
   formats: string;
   action: string;
-  convert: (file: File) => Promise<Blob | Uint8Array>;
+  convert: (file: File) => Promise<Blob>;
 };
 
 const MODES: Record<ConvertMode, ModeConfig> = {
@@ -67,17 +67,6 @@ const MODES: Record<ConvertMode, ModeConfig> = {
     action: 'Convert to CSV',
     convert: jsonToCsv,
   },
-  'text-to-pdf': {
-    accept: { 'text/plain': ['.txt'] },
-    input: /\.txt$/i,
-    output: '.pdf',
-    from: 'Plain text',
-    to: 'PDF',
-    noun: 'text file',
-    formats: 'TXT files',
-    action: 'Convert to PDF',
-    convert: textToPdf,
-  },
 };
 
 export default function ConvertFile({ mode }: { mode: ConvertMode }) {
@@ -90,7 +79,6 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   const [failed, setFailed] = useState(false);
   const [result, setResult] = useState<{ blob: Blob; name: string } | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
   useReportWork(mode, !!file);
 
   const dropzone = useDropzone({
@@ -115,13 +103,13 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
     },
   });
 
-  const convert = async (customName?: string) => {
+  const convert = async () => {
     if (!file) return;
     setConverting(true);
     setFailed(false);
     try {
-      const output = await config.convert(file);
-      setResult({ blob: new Blob([output]), name: customName ?? file.name.replace(config.input, '') + config.output });
+      const blob = await config.convert(file);
+      setResult({ blob, name: file.name.replace(config.input, '') + config.output });
     } catch (err) {
       console.error('Conversion error', err);
       setFailed(true);
@@ -209,7 +197,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
                 size="lg"
                 className="mt-6 w-full"
                 disabled={converting}
-                onClick={() => (mode === 'text-to-pdf' ? setSuggestedName(file.name.replace(/\.txt$/i, '') || 'converted') : convert())}
+                onClick={convert}
               >
                 {converting ? (
                   <>
@@ -227,15 +215,6 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
       </div>
 
       <PageViewer previews={previews} count={pageCount} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} />
-
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          convert(fileName);
-        }}
-      />
     </ToolShell>
   );
 }

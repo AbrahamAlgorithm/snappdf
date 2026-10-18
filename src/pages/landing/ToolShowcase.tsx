@@ -58,7 +58,7 @@ const TOOLS = [
     icon: ArrowLeftRight,
     c: '#7c3aed',
     desc: 'PDF to Word, spreadsheets to Excel, and plain text to PDF.',
-    points: ['PDF text into an editable Word file', 'CSV or JSON to Excel, JSON to CSV', 'Text files into tidy PDFs'],
+    points: ['PDF text into an editable Word file', 'CSV or JSON to Excel, JSON to CSV', 'Typed or pasted text into tidy PDFs'],
     file: 'q3-report.pdf',
     cta: 'Convert a file',
     href: APP_HREF,

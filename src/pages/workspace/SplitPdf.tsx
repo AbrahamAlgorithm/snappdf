@@ -213,7 +213,13 @@ export default function SplitPdf() {
                     type="button"
                     aria-pressed={isSelected}
                     aria-label={`Page ${i + 1}`}
-                    onClick={() => toggle(i)}
+                    title="Double-click to preview"
+                    onClick={(e) => e.detail < 2 && toggle(i)}
+                    // double-click undoes the first click's pick and opens the preview instead
+                    onDoubleClick={() => {
+                      toggle(i);
+                      setViewing(i);
+                    }}
                     className="relative block aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-subtle"
                   >
                     {previews[i] ? (

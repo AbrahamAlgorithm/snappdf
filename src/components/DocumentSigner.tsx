@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Check, ChevronLeft, ChevronRight, Copy, Eraser, FileText, Minus, PenLine, Plus, RotateCcw, RotateCw, Sparkles, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Eraser, FileText, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, Dialog, IconButton, Spinner, UploadCard } from '@/components/toolkit';
-import { convertImageFileToPdfBytes, generateSampleContractPdf, renderPdfPageHighRes, type SignatureItem } from '@/lib/signerUtils';
+import { convertImageFileToPdfBytes, renderPdfPageHighRes, type SignatureItem } from '@/lib/signerUtils';
 import { getPdfMetadata } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
@@ -176,17 +176,18 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeSelectedId, signatures, isDrawModalOpen, setSelectedSigId]);
 
-  const loadDocument = async (name: string, getBytes: () => Promise<Uint8Array>) => {
+  const handleDocumentFile = async (file: File) => {
     setIsLoadingDoc(true);
-    setDocName(name);
+    setDocName(file.name);
     setRenderedPageUrl(null);
     setCurrentPage(0);
     setSignatures([]);
     setSelectedSigId(null);
     try {
-      const bytes = await getBytes();
+      // a photo of a document becomes a one-page pdf
+      const bytes = file.type.startsWith('image/') ? await convertImageFileToPdfBytes(file) : new Uint8Array(await file.arrayBuffer());
       setDocBytes(bytes);
-      const meta = await getPdfMetadata(new File([bytes], name, { type: 'application/pdf' }));
+      const meta = await getPdfMetadata(new File([bytes], file.name, { type: 'application/pdf' }));
       setPageCount(meta.pageCount || 1);
     } catch (err) {
       console.error('Failed to load document file:', err);
@@ -194,14 +195,6 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
       setIsLoadingDoc(false);
     }
   };
-
-  const handleDocumentFile = (file: File) =>
-    loadDocument(file.name, async () => {
-      if (file.type.startsWith('image/')) return convertImageFileToPdfBytes(file);
-      return new Uint8Array(await file.arrayBuffer());
-    });
-
-  const handleLoadSampleContract = () => loadDocument('Sample_NDA_Contract.pdf', generateSampleContractPdf);
 
   const docDropzone = useDropzone({
     onDrop: (files) => files[0] && handleDocumentFile(files[0]),
@@ -542,18 +535,6 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
           button="Choose document"
           formats="PDF, JPG, PNG and other images"
           busy={isLoadingDoc ? 'Opening your document…' : null}
-          extra={
-            <Button
-              size="lg"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleLoadSampleContract();
-              }}
-            >
-              <Sparkles size={18} />
-              Try a sample
-            </Button>
-          }
         />
       ) : (
         <>

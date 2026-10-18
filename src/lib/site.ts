@@ -53,7 +53,7 @@ export const TOOLS: Tool[] = [
   {
     id: 'text-to-pdf',
     name: 'Text to PDF',
-    description: 'Turn a plain text file into a tidy PDF.',
+    description: 'Type, paste or open some text and save it as a tidy PDF.',
     group: 'Create and edit',
     icon: FileText,
     color: '#0891b2',

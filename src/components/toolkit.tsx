@@ -212,7 +212,6 @@ export function UploadCard({
   button,
   formats,
   busy,
-  extra,
 }: {
   tool: Tool;
   dropzone: Pick<DropzoneState, 'getRootProps' | 'getInputProps' | 'isDragActive' | 'open'>;
@@ -221,7 +220,6 @@ export function UploadCard({
   button: string;
   formats: string;
   busy?: string | null;
-  extra?: ReactNode;
 }) {
   const { getRootProps, getInputProps, isDragActive, open } = dropzone;
   return (
@@ -245,20 +243,18 @@ export function UploadCard({
             <ToolIcon tool={tool} size="lg" />
             <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.03em] sm:text-[26px]">{isDragActive ? 'Drop to add' : title}</h2>
             <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-ink/60">{hint}</p>
-            <div className="mt-7 flex flex-wrap justify-center gap-2">
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  open();
-                }}
-              >
-                <Upload size={18} />
-                {button}
-              </Button>
-              {extra}
-            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              className="mt-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                open();
+              }}
+            >
+              <Upload size={18} />
+              {button}
+            </Button>
             <p className="mt-5 text-[13px] text-ink/45">{formats}</p>
           </>
         )}
@@ -412,6 +408,10 @@ export function PageViewer({
   const open = index !== null;
   useEscape(open, onClose);
 
+  // a click anywhere but the page or a button closes the preview
+  const pressedOutside = useRef(false);
+  const isOutside = (target: EventTarget) => !(target as Element).closest('[data-page], button');
+
   useEffect(() => {
     if (index === null) return;
     const onKey = (e: KeyboardEvent) => {
@@ -433,7 +433,9 @@ export function PageViewer({
           role="dialog"
           aria-modal="true"
           aria-label={`Page ${index + 1} of ${count}`}
-          className="fixed inset-0 z-[100] flex flex-col bg-[#18181b]/95 text-white"
+          onPointerDown={(e) => (pressedOutside.current = isOutside(e.target))}
+          onClick={(e) => pressedOutside.current && isOutside(e.target) && onClose()}
+          className="fixed inset-0 z-[100] flex flex-col bg-[#18181b] text-white"
         >
           <div className="flex h-16 shrink-0 items-center gap-3 px-3 sm:px-5">
             <IconButton label="Close" onClick={onClose} className="text-white/80 hover:bg-white/10 hover:text-white">
@@ -458,19 +460,20 @@ export function PageViewer({
               label="Previous page"
               disabled={index === 0}
               onClick={() => onIndex(index - 1)}
-              className="absolute left-2 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:left-5"
+              className="absolute left-2 bg-white/10 text-white hover:bg-white/20 hover:text-white disabled:pointer-events-auto sm:left-5"
             >
               <ChevronLeft size={22} />
             </IconButton>
             {previews[index] ? (
               <img
                 key={index}
+                data-page
                 src={previews[index]}
                 alt={`Page ${index + 1}`}
                 className="max-h-full max-w-full rounded-sm bg-white object-contain shadow-2xl"
               />
             ) : (
-              <div className="flex aspect-[3/4] h-full max-h-[70vh] items-center justify-center rounded-sm bg-white/5">
+              <div data-page className="flex aspect-[3/4] h-full max-h-[70vh] items-center justify-center rounded-sm bg-white/5">
                 <Spinner className="size-8 text-white/60" />
               </div>
             )}
@@ -478,7 +481,7 @@ export function PageViewer({
               label="Next page"
               disabled={index === count - 1}
               onClick={() => onIndex(index + 1)}
-              className="absolute right-2 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:right-5"
+              className="absolute right-2 bg-white/10 text-white hover:bg-white/20 hover:text-white disabled:pointer-events-auto sm:right-5"
             >
               <ChevronRight size={22} />
             </IconButton>
