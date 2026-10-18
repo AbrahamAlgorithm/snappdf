@@ -54,10 +54,6 @@
     @apply bg-canvas text-ink font-sans antialiased;
   }
 
-  ::selection {
-    @apply bg-lime text-black;
-  }
-
   /* Soft corners on every control; utilities like rounded-full still win. */
   button,
   select,
