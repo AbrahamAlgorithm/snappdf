@@ -15,7 +15,7 @@ export default function Tools() {
     <div className="min-h-screen bg-canvas text-ink">
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href="#/" aria-label="snappdf home" className="rounded-md">
+          <a href="/" aria-label="snappdf home" className="rounded-md">
             <Logo />
           </a>
           <div className="flex items-center gap-2">
@@ -35,10 +35,8 @@ export default function Tools() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-6 sm:pt-16">
-        <h1 className="text-[32px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">What do you want to do?</h1>
-        <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink/60 sm:text-[17px]">
-          Pick a tool to get started. Everything runs in your browser, so your files never leave this device.
-        </p>
+        <h1 className="text-[32px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">What do you need to do?</h1>
+        <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink/60 sm:text-[17px]">Choose a tool to get started.</p>
 
         {TOOL_GROUPS.map((group) => (
           <section key={group} aria-label={group} className="mt-10 sm:mt-14">

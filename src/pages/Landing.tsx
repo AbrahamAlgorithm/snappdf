@@ -85,55 +85,70 @@ function Nav() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // The open menu covers the whole page, so the page underneath shouldn't scroll.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = 'hidden';
+    return () => {
+      root.style.overflow = previous;
+    };
+  }, [menuOpen]);
+
   return (
-    <header
-      className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow] duration-300',
-        scrolled || menuOpen ? 'bg-canvas/85 shadow-[0_1px_0_var(--color-line)] backdrop-blur-xl' : 'bg-transparent',
-      )}
-    >
-      <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
-        <a href="#/" aria-label="snappdf home" onClick={() => window.scrollTo({ top: 0 })} className="flex h-11 items-center rounded-md">
-          <Logo />
-        </a>
-
-        <nav aria-label="Main" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="flex h-11 items-center rounded-md px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink">
-              {link.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <a href={APP_HREF} className="hidden h-11 items-center px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink sm:flex">
-            Get started
+    <>
+      <header
+        className={cn(
+          'fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow] duration-300',
+          menuOpen ? 'bg-canvas' : scrolled ? 'bg-canvas/85 shadow-[0_1px_0_var(--color-line)] backdrop-blur-xl' : 'bg-transparent',
+        )}
+      >
+        <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
+          <a href="/" aria-label="snappdf home" onClick={() => window.scrollTo({ top: 0 })} className="flex h-11 items-center rounded-md">
+            <Logo />
           </a>
-          <GitHubStarButton className="hidden h-11 sm:inline-flex" />
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-expanded={menuOpen}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            className="grid size-11 place-items-center md:hidden"
-          >
-            <span aria-hidden="true" className="relative block h-3 w-5">
-              <span className={cn('absolute left-0 h-[2px] w-5 rounded-full bg-ink transition-transform duration-300', menuOpen ? 'top-1/2 -translate-y-1/2 rotate-45' : 'top-0')} />
-              <span className={cn('absolute left-0 h-[2px] w-5 rounded-full bg-ink transition-transform duration-300', menuOpen ? 'top-1/2 -translate-y-1/2 -rotate-45' : 'bottom-0')} />
-            </span>
-          </button>
-        </div>
-      </div>
 
+          <nav aria-label="Main" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
+            {NAV_LINKS.map((link) => (
+              <a key={link.href} href={link.href} className="flex h-11 items-center rounded-md px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink">
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <a href={APP_HREF} className="hidden h-11 items-center px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink sm:flex">
+              Get started
+            </a>
+            <GitHubStarButton className="hidden h-11 sm:inline-flex" />
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-expanded={menuOpen}
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              className="grid size-11 place-items-center md:hidden"
+            >
+              <span aria-hidden="true" className="relative block h-3 w-5">
+                <span className={cn('absolute left-0 h-[2px] w-5 rounded-full bg-ink transition-transform duration-300', menuOpen ? 'top-1/2 -translate-y-1/2 rotate-45' : 'top-0')} />
+                <span className={cn('absolute left-0 h-[2px] w-5 rounded-full bg-ink transition-transform duration-300', menuOpen ? 'top-1/2 -translate-y-1/2 -rotate-45' : 'bottom-0')} />
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* A sibling of the header, not a child: the header's backdrop blur would otherwise trap this
+          fixed layer inside the header's own box instead of the whole screen. */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: EASE }}
-            className="overflow-hidden md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: EASE }}
+            className="fixed inset-0 z-40 overflow-y-auto bg-canvas px-4 pb-10 pt-24 md:hidden"
           >
-            <div className="px-4 pb-6 pt-2">
+            <motion.nav aria-label="Main" initial={{ y: -10 }} animate={{ y: 0 }} exit={{ y: -10 }} transition={{ duration: 0.25, ease: EASE }}>
               {[...NAV_LINKS, { label: 'Get started', href: APP_HREF }].map((link) => (
                 <a
                   key={link.href}
@@ -144,14 +159,12 @@ function Nav() {
                   {link.label}
                 </a>
               ))}
-              <div className="mt-6">
-                <GitHubStarButton label="Star on GitHub" className="h-12 w-full justify-center" />
-              </div>
-            </div>
+              <GitHubStarButton label="Star on GitHub" className="mt-6 h-12 w-full justify-center" />
+            </motion.nav>
           </motion.div>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 }
 
@@ -356,12 +369,12 @@ function Hero() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.38, ease: EASE }}
-          className="mt-8 flex flex-col items-center justify-center gap-2.5 sm:mt-10 sm:flex-row"
+          className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:mt-10"
         >
-          <ButtonLink href={APP_HREF} size="lg" className="w-full sm:w-auto">
-            Start editing, it’s free
+          <ButtonLink href={APP_HREF} size="lg" className="px-5 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6">
+            Start for free
           </ButtonLink>
-          <GitHubStarButton label="Star on GitHub" className="h-12 w-full justify-center px-6 sm:w-auto" />
+          <GitHubStarButton label="Star on GitHub" className="h-12 px-5 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6" />
         </motion.div>
       </div>
 
@@ -514,8 +527,8 @@ function Footer() {
         />
       </div>
       <div className="mx-auto flex max-w-6xl flex-col gap-2 border-t border-line px-4 py-6 text-[13px] text-ink/45 sm:flex-row sm:justify-between sm:px-6">
-        <span>© {new Date().getFullYear()} snappdf. Free forever.</span>
-        <span>Your files are processed on your device.</span>
+        <span>© {new Date().getFullYear()} snappdf.</span>
+        <span className="hidden sm:inline">Your files are processed on your device.</span>
       </div>
       <div aria-hidden="true" className="mx-auto flex max-w-6xl items-end gap-[3vw] px-4 pb-6 text-ink/[0.07] sm:px-6">
         <LogoMark className="h-[15vw] max-h-48 shrink-0" />
@@ -528,7 +541,7 @@ function Footer() {
 // ---------------------------------------------------------------------------
 
 export default function Landing() {
-  // Warm up the (heavy) workspace bundle so "Start editing" feels instant.
+  // Warm up the (heavy) workspace bundle so opening a tool feels instant.
   useEffect(() => {
     const id = setTimeout(() => void import('@/src/pages/Workspace'), 1500);
     return () => clearTimeout(id);
