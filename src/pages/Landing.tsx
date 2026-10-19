@@ -204,7 +204,7 @@ function HeroPreview() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 1, delay: 0.5, ease: EASE }}
-      className="mx-auto mt-14 max-w-6xl px-4 sm:mt-20 sm:px-6"
+      className="mx-auto mt-10 max-w-6xl px-4 sm:mt-20 sm:px-6"
     >
       <div className="h-[460px] overflow-hidden rounded-[28px] bg-[#e9e9ec] px-2.5 pt-2.5 sm:h-[560px] sm:rounded-[40px] sm:px-6 sm:pt-6 lg:h-[620px] lg:px-10 lg:pt-10">
         <div className="flex h-full flex-col overflow-hidden rounded-t-[20px] bg-subtle text-left shadow-[0_0_0_1px_rgba(0,0,0,0.05)] sm:rounded-t-[28px]">
@@ -290,7 +290,7 @@ function HeroPreview() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36 lg:pt-40">
+    <section className="relative overflow-hidden pb-20 pt-32 sm:pb-28 sm:pt-36 lg:pt-40">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
         <h1
           aria-label="The ultimate PDF workspace. Zero paywalls"
@@ -315,7 +315,7 @@ function Hero() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: EASE }}
-          className="mx-auto mt-10 max-w-[400px] text-balance text-[20px] font-[440] leading-[26px] text-ink/60 md:max-w-none"
+          className="mx-auto mt-6 max-w-[400px] text-balance sm:mt-10 text-[20px] font-[440] leading-[26px] text-ink/60 md:max-w-none"
         >
           <span className="md:block">Everything you need to edit, convert, and manage PDFs.</span>{' '}
           <span className="md:block">Fast, private, and watermark-free.</span>
@@ -329,11 +329,11 @@ function Hero() {
         >
           <a
             href={APP_HREF}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-ink px-5 text-[15px] font-medium text-canvas transition-colors hover:bg-ink/85 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-ink px-4 text-[14px] font-medium text-canvas transition-colors hover:bg-ink/85 max-[359px]:px-3 sm:h-12 sm:px-6 sm:text-[15px]"
           >
             Start for free
           </a>
-          <GitHubStarButton label="Star on GitHub" className="h-12 px-5 max-[359px]:px-3.5 max-[359px]:text-[14px] sm:px-6" />
+          <GitHubStarButton label="Star on GitHub" className="h-11 px-4 text-[14px] max-[359px]:px-3 sm:h-12 sm:px-6 sm:text-[15px]" />
         </motion.div>
       </div>
 
