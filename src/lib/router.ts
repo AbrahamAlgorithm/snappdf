@@ -1,16 +1,31 @@
 import { useEffect, useState } from 'react';
 import { TOOLS, type ToolId } from '@/lib/site';
 
-// / is the landing, /app lists the tools, /app/<tool> opens one (the host has to serve index.html for these)
-export type Route = { name: 'landing' } | { name: 'tools' } | { name: 'tool'; tool: ToolId };
+// / is the landing, /app lists the tools, /app/<tool> opens one, anything else is the 404 page
+// (nginx.conf serves index.html for these, with a 404 status for the rest)
+export type Route =
+  | { name: 'landing' }
+  | { name: 'tools' }
+  | { name: 'tool'; tool: ToolId }
+  | { name: 'privacy' }
+  | { name: 'report' }
+  | { name: 'not-found' };
 
 export const APP_HREF = '/app';
 
+const PAGES: Record<string, Route> = {
+  '/': { name: 'landing' },
+  '/index.html': { name: 'landing' },
+  '/app': { name: 'tools' },
+  '/privacy': { name: 'privacy' },
+  '/report': { name: 'report' },
+};
+
 export function parseRoute(pathname: string): Route {
-  const match = pathname.match(/^\/app(?:\/([\w-]+))?\/?$/);
-  if (!match) return { name: 'landing' };
-  const tool = TOOLS.find((t) => t.id === match[1]);
-  return tool ? { name: 'tool', tool: tool.id } : { name: 'tools' };
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (PAGES[path]) return PAGES[path];
+  const tool = TOOLS.find((t) => path === `/app/${t.id}`);
+  return tool ? { name: 'tool', tool: tool.id } : { name: 'not-found' };
 }
 
 export function toolHref(tool: ToolId) {

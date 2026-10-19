@@ -20,6 +20,7 @@ env:
   REGION: us-west1
   SERVICE: snappdf
   IMAGE: us-west1-docker.pkg.dev/my-portfolio-492519/snappdf/snappdf
+  REPORT_IMAGE: us-west1-docker.pkg.dev/my-portfolio-492519/snappdf/snappdf-report
   WIF_PROVIDER: projects/179103012566/locations/global/workloadIdentityPools/snappdf-github/providers/github
   DEPLOYER: snappdf-deployer@my-portfolio-492519.iam.gserviceaccount.com
 
@@ -45,22 +46,35 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.DEPLOYER }}
 
-      - name: Build and push the image
+      # the site (nginx) and the report sender (server/) are two images that run side by side
+      - name: Build and push the images
         id: image
         run: |
           gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
           docker build -t "$IMAGE:$GITHUB_SHA" .
+          docker build -t "$REPORT_IMAGE:$GITHUB_SHA" server
           docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$REPORT_IMAGE:$GITHUB_SHA"
           echo "ref=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE:$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+          echo "report=$(docker inspect --format='{{index .RepoDigests 0}}' "$REPORT_IMAGE:$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
 
-      # deploys by digest, so the exact image that was built is the one that runs
+      # deploys by digest, so the exact images that were built are the ones that run.
+      # nginx takes the traffic, the report sender sits next to it and only it gets the email secrets,
+      # which live in secret manager (the repo only names them)
       - name: Deploy
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
+          REPORT_REF: ${{ steps.image.outputs.report }}
         run: |
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" \
             --region "$REGION" \
             --quiet \
             --container nginx-container \
-            --image "$IMAGE_REF"
+            --image "$IMAGE_REF" \
+            --port 8080 \
+            --container report \
+            --image "$REPORT_REF" \
+            --cpu 1 \
+            --memory 256Mi \
+            --set-secrets RESEND_API_KEY=snappdf-resend-api-key:latest,REPORT_TO=snappdf-report-to:latest

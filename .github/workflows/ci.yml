@@ -42,3 +42,4 @@ jobs:
         with:
           persist-credentials: false
       - run: docker build -t snappdf:ci .
+      - run: docker build -t snappdf-report:ci server

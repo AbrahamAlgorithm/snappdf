@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { DropzoneState } from 'react-dropzone';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Upload, X } from 'lucide-react';
 import { APP_HREF } from '@/lib/router';
 import type { Tool } from '@/lib/site';
 import { cn } from '@/lib/utils';
@@ -85,6 +85,154 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
         )}
       />
     </button>
+  );
+}
+
+export type SelectOption = { value: string; label: string; icon?: ReactNode };
+
+/**
+ * A dropdown that looks like the rest of the app instead of the browser's own. Keyboard works like a
+ * native one: arrows to move, Enter to pick, Escape to close, a letter to jump to the next match.
+ */
+export function Select({
+  id,
+  labelId,
+  value,
+  options,
+  onChange,
+  placeholder = 'Choose…',
+  className,
+}: {
+  id: string;
+  labelId: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const selectedIndex = options.findIndex((o) => o.value === value);
+  const selected = options[selectedIndex];
+
+  // a click or tap anywhere else closes it
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !rootRef.current?.contains(e.target as Node) && setOpen(false);
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [open]);
+
+  // keep the highlighted option in view while moving with the keyboard
+  useEffect(() => {
+    if (open) listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [open, active]);
+
+  const openList = () => {
+    setActive(Math.max(0, selectedIndex));
+    setOpen(true);
+  };
+
+  const choose = (index: number) => {
+    onChange(options[index].value);
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
+
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (!open) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault();
+        openList();
+      }
+      return;
+    }
+    const last = options.length - 1;
+    const moves: Record<string, () => number> = {
+      ArrowDown: () => Math.min(active + 1, last),
+      ArrowUp: () => Math.max(active - 1, 0),
+      Home: () => 0,
+      End: () => last,
+    };
+    if (moves[e.key]) {
+      e.preventDefault();
+      setActive(moves[e.key]());
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      choose(active);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === 'Tab') {
+      setOpen(false);
+    } else if (e.key.length === 1) {
+      const letter = e.key.toLowerCase();
+      const order = [...options.keys()].map((i) => (active + 1 + i) % options.length);
+      const match = order.find((i) => options[i].label.toLowerCase().startsWith(letter));
+      if (match !== undefined) setActive(match);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className={cn('relative', className)}>
+      <button
+        ref={buttonRef}
+        id={id}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={`${id}-list`}
+        aria-labelledby={`${labelId} ${id}`}
+        aria-activedescendant={open ? `${id}-option-${active}` : undefined}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className={cn(
+          'flex h-12 w-full items-center gap-3 rounded-[14px] border bg-canvas px-4 text-left text-[15px] outline-none transition-colors',
+          open ? 'border-ink' : 'border-line hover:border-ink/30 focus-visible:border-ink',
+        )}
+      >
+        {selected?.icon}
+        <span className={cn('min-w-0 flex-1 truncate', !selected && 'text-ink/40')}>{selected?.label ?? placeholder}</span>
+        <ChevronDown size={18} className={cn('shrink-0 text-ink/50 transition-transform', open && 'rotate-180')} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            ref={listRef}
+            id={`${id}-list`}
+            role="listbox"
+            aria-labelledby={labelId}
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.14 }}
+            className="absolute inset-x-0 top-full z-30 mt-2 max-h-72 origin-top overflow-y-auto rounded-[16px] border border-line bg-card p-1.5 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.28)]"
+          >
+            {options.map((option, i) => (
+              <li
+                key={option.value}
+                id={`${id}-option-${i}`}
+                data-index={i}
+                role="option"
+                aria-selected={i === selectedIndex}
+                onPointerMove={() => setActive(i)}
+                onClick={() => choose(i)}
+                className={cn('flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px]', i === active && 'bg-subtle')}
+              >
+                {option.icon}
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {i === selectedIndex && <Check size={16} className="shrink-0" />}
+              </li>
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

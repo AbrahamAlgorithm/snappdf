@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
+// plain javascript, shared with the server
+import { createReportHandler } from './server/report.mjs';
 
 // writes /sw.js with the list of every built file, and a version that changes whenever any of them do
 function offline(): Plugin {
@@ -38,8 +40,27 @@ function offline(): Plugin {
   };
 }
 
+// /api/report while developing, running the same code as the server. the resend key is read from .env
+// here, on this machine, and never goes into the app the browser loads
+function reportApi(): Plugin {
+  let handle: (req: unknown, res: unknown) => void = () => {};
+  return {
+    name: 'snappdf-report-api',
+    configResolved(config) {
+      const env = loadEnv(config.mode, config.root, '');
+      handle = createReportHandler({ apiKey: env.RESEND_API_KEY, to: env.REPORT_TO, from: env.REPORT_FROM || undefined });
+    },
+    configureServer(server) {
+      server.middlewares.use('/api/report', (req, res) => handle(req, res));
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/report', (req, res) => handle(req, res));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), offline()],
+  plugins: [react(), tailwindcss(), offline(), reportApi()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

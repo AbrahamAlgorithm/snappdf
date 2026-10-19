@@ -4,6 +4,9 @@ import { LogoMark } from '@/components/brand';
 import { useRoute } from '@/lib/router';
 import type { ToolId } from '@/lib/site';
 import Landing from '@/pages/Landing';
+import NotFound from '@/pages/NotFound';
+import Privacy from '@/pages/Privacy';
+import Report from '@/pages/Report';
 import Tools from '@/pages/Tools';
 
 // lazy load the editors, they pull in the heavy pdf and office libs
@@ -26,9 +29,13 @@ export default function App() {
   const [opened, setOpened] = useState<ToolId[]>([]);
   if (route.name === 'tool' && !opened.includes(route.tool)) setOpened([...opened, route.tool]);
 
-  // scroll to top when the page changes, but not on first load or #anchors
+  // scroll to top when the page changes, or to the section a link like /#faq points at. not on first load
   useEffect(() => {
-    if (previousPage.current !== page) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (previousPage.current !== page) {
+      const section = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (section) section.scrollIntoView();
+      else window.scrollTo({ top: 0, behavior: 'instant' });
+    }
     previousPage.current = page;
   }, [page]);
 
@@ -36,6 +43,9 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       {route.name === 'tools' && <Tools />}
       {route.name === 'landing' && <Landing />}
+      {route.name === 'privacy' && <Privacy />}
+      {route.name === 'report' && <Report />}
+      {route.name === 'not-found' && <NotFound />}
       {opened.map((tool) => (
         <Activity key={tool} mode={tool === page ? 'visible' : 'hidden'}>
           <Suspense fallback={<WorkspaceFallback />}>
