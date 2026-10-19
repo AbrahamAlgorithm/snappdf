@@ -495,13 +495,13 @@ export function PageViewer({
           // a swipe isn't a tap, so it never closes the preview
           onClick={(e) => !swipe.current?.moved && pressedOutside.current && isOutside(e) && onClose()}
           // frosted glass: the page behind stays visible, just blurred
-          className="fixed inset-0 z-[100] flex touch-pan-y touch-pinch-zoom flex-col bg-canvas/70 text-ink backdrop-blur-2xl backdrop-saturate-150"
+          className="fixed inset-0 z-[100] flex touch-pan-y touch-pinch-zoom flex-col bg-canvas/40 text-ink backdrop-blur-md"
         >
           <div className="flex h-16 shrink-0 items-center gap-3 px-3 sm:px-5">
             <IconButton label="Close" onClick={onClose} className="bg-canvas/70 text-ink shadow-sm hover:bg-canvas">
               <X size={20} />
             </IconButton>
-            <span className="text-[15px] font-medium tabular-nums">
+            <span className="rounded-full bg-canvas/80 px-3 py-1 text-[15px] font-medium tabular-nums shadow-sm">
               Page {index + 1} of {count}
             </span>
             {onToggle && (
