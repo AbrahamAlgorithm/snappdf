@@ -333,7 +333,7 @@ function Hero() {
           >
             Start for free
           </a>
-          <GitHubStarButton label="Star on GitHub" className="h-11 px-4 text-[14px] max-[359px]:px-3 sm:h-12 sm:px-6 sm:text-[15px]" />
+          <GitHubStarButton label="View source" className="h-11 px-4 text-[14px] max-[359px]:px-3 sm:h-12 sm:px-6 sm:text-[15px]" />
         </motion.div>
       </div>
 
