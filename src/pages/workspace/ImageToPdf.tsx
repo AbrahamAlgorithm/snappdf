@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
 import { Crop, Download, ImagePlus, RotateCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import Cropper, { type Area, type Point } from 'react-easy-crop';
@@ -55,9 +55,10 @@ const ACCEPT = {
 
 const newId = () => Math.random().toString(36).substring(7);
 
-// previews are made a few at a time, so hundreds of photos never sit in memory at full size
-const BATCH = 4;
 const THUMB_WIDTH = 600;
+
+// previews made at once. past 4 each one gets slower and the first screen shows up later, low-memory phones get fewer
+const WORKERS = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 2, (navigator as { deviceMemory?: number }).deviceMemory ?? 8));
 
 // small jpeg preview for a grid card, a 12mp photo per card would run a phone out of memory
 async function makeThumb(source: Blob | string): Promise<string | undefined> {
@@ -85,29 +86,152 @@ async function makeThumb(source: Blob | string): Promise<string | undefined> {
   }
 }
 
-const revoke = (img: ImageData) => {
+const revoke = (img: Pick<ImageData, 'url' | 'thumb'>) => {
   if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
   if (img.thumb) URL.revokeObjectURL(img.thumb);
 };
 
-function ImageCard({
+type Job = { id: string; file: File };
+type Ready = { id: string; url: string; thumb?: string; size: number };
+
+// heic gets converted, then a small preview is made
+async function prepare({ id, file }: Job): Promise<Ready> {
+  try {
+    const converted = await processFileForImageUpload(file);
+    return { id, url: URL.createObjectURL(converted), thumb: await makeThumb(converted), size: converted.size };
+  } catch {
+    return { id, url: URL.createObjectURL(file), size: file.size };
+  }
+}
+
+// makes previews in the background: the first picks start straight away, cards on screen
+// jump the queue, and finished previews land once per frame so a big batch doesn't stutter
+function usePreviewQueue(setImages: Dispatch<SetStateAction<ImageData[]>>, setBusy: (text: string | null) => void) {
+  // built once, so the queue and its methods are the same object on every render
+  return useMemo(() => {
+    let jobs: Job[] = [];
+    const alive = new Set<string>();
+    const onScreen = new Set<string>();
+    const nearScreen = new Set<string>();
+    const cards = new Map<string, Element>();
+    const finished: Ready[] = [];
+    const stats = { running: 0, done: 0, total: 0, label: '', frame: 0 };
+
+    const track = (set: Set<string>) => (entries: IntersectionObserverEntry[]) => {
+      for (const entry of entries) {
+        const id = (entry.target as HTMLElement).dataset.id;
+        if (id && entry.isIntersecting) set.add(id);
+        else if (id) set.delete(id);
+      }
+    };
+    // cards on screen go first, then the ones about to scroll on
+    const observers = [new IntersectionObserver(track(onScreen)), new IntersectionObserver(track(nearScreen), { rootMargin: '600px 0px' })];
+
+    const flush = () => {
+      stats.frame = 0;
+      const ready = finished.splice(0).filter((r) => alive.has(r.id) || (revoke(r), false));
+      if (ready.length) {
+        const byId = new Map(ready.map((r) => [r.id, r]));
+        for (const r of ready) {
+          const card = cards.get(r.id);
+          if (card) observers.forEach((o) => o.unobserve(card));
+          cards.delete(r.id);
+          onScreen.delete(r.id);
+          nearScreen.delete(r.id);
+        }
+        setImages((prev) => prev.map((img) => (byId.has(img.id) ? { ...img, ...byId.get(img.id), pending: false } : img)));
+      }
+      if (stats.done >= stats.total) {
+        stats.done = stats.total = 0;
+        setBusy(null);
+      } else {
+        setBusy(`${stats.label}… ${stats.done} of ${stats.total}`);
+      }
+    };
+
+    const schedule = () => {
+      if (!stats.frame) stats.frame = requestAnimationFrame(flush);
+    };
+
+    const pump = () => {
+      while (stats.running < WORKERS && jobs.length) {
+        let next = jobs.findIndex((job) => onScreen.has(job.id));
+        if (next < 0) next = jobs.findIndex((job) => nearScreen.has(job.id));
+        const [job] = jobs.splice(Math.max(0, next), 1);
+        stats.running++;
+        prepare(job).then((ready) => {
+          finished.push(ready);
+          stats.running--;
+          stats.done++;
+          schedule();
+          pump();
+        });
+      }
+    };
+
+    return {
+      add(files: File[]) {
+        const added = files.map((file) => ({ id: newId(), file }));
+        added.forEach((job) => alive.add(job.id));
+        jobs.push(...added);
+        stats.total += added.length;
+        stats.label = files.some(isHeicFile) || stats.label === 'Converting photos' ? 'Converting photos' : 'Adding images';
+        setImages((prev) => [...prev, ...added.map(({ id, file }) => ({ id, url: '', name: file.name, size: file.size, pending: true }))]);
+        setBusy(`${stats.label}… ${stats.done} of ${stats.total}`);
+        pump();
+      },
+      watch(el: HTMLElement | null, id: string) {
+        if (!el || cards.get(id) === el) return;
+        el.dataset.id = id;
+        cards.set(id, el);
+        observers.forEach((o) => o.observe(el));
+      },
+      forget(ids: string[]) {
+        const gone = new Set(ids);
+        for (const id of ids) {
+          alive.delete(id);
+          const card = cards.get(id);
+          if (card) observers.forEach((o) => o.unobserve(card));
+          cards.delete(id);
+        }
+        const waiting = jobs.length;
+        jobs = jobs.filter((job) => !gone.has(job.id));
+        stats.total -= waiting - jobs.length;
+        schedule();
+      },
+    };
+  }, [setImages, setBusy]);
+}
+
+// memo + stable callbacks, so when previews land only the cards that changed re-render
+const ImageCard = memo(function ImageCard({
   image,
   index,
   onRemove,
   onCrop,
   onRotate,
+  watch,
 }: {
   image: ImageData;
   index: number;
-  onRemove: () => void;
-  onCrop: () => void;
-  onRotate: () => void;
+  onRemove: (id: string) => void;
+  onCrop: (id: string) => void;
+  onRotate: (id: string) => void;
+  watch: (el: HTMLElement | null, id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
+  const { id, pending } = image;
+  const cardRef = useCallback(
+    (el: HTMLElement | null) => {
+      setNodeRef(el);
+      if (pending) watch(el, id);
+    },
+    [setNodeRef, watch, id, pending],
+  );
 
   return (
     <div
-      ref={setNodeRef}
+      ref={cardRef}
       style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined }}
       className={cn(
         'relative flex flex-col rounded-[20px] bg-card p-2 transition-shadow',
@@ -142,19 +266,19 @@ function ImageCard({
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink/65" title={image.name}>
           {image.name}
         </span>
-        <IconButton label="Rotate" size="sm" disabled={image.pending} onClick={onRotate}>
+        <IconButton label="Rotate" size="sm" disabled={pending} onClick={() => onRotate(id)}>
           <RotateCw size={16} />
         </IconButton>
-        <IconButton label="Crop" size="sm" disabled={image.pending} onClick={onCrop}>
+        <IconButton label="Crop" size="sm" disabled={pending} onClick={() => onCrop(id)}>
           <Crop size={16} />
         </IconButton>
-        <IconButton label="Remove" size="sm" onClick={onRemove}>
+        <IconButton label="Remove" size="sm" onClick={() => onRemove(id)}>
           <Trash2 size={16} />
         </IconButton>
       </div>
     </div>
   );
-}
+});
 
 export default function ImageToPdf() {
   const [images, setImages] = useState<ImageData[]>([]);
@@ -168,6 +292,7 @@ export default function ImageToPdf() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   useReportWork(tool.id, images.length > 0);
+  const previews = usePreviewQueue(setImages, setBusy);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -175,41 +300,23 @@ export default function ImageToPdf() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const onDrop = useCallback(async (accepted: File[], rejections: FileRejection[] = []) => {
+  const onDrop = (accepted: File[], rejections: FileRejection[] = []) => {
     // some browsers give heic photos an empty or odd mime type, let them through
     const lookLikeImages = rejections
       .map((r) => r.file)
       .filter((file) => isHeicFile(file) || (file.type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp|heic|heif|tiff|svg)$/i.test(file.name));
     const files = [...accepted, ...lookLikeImages];
-    if (files.length === 0) return;
-
-    // cards show up straight away, heic conversion and previews fill in a few at a time
-    const queue = files.map((file) => ({ id: newId(), file }));
-    setImages((prev) => [...prev, ...queue.map(({ id, file }) => ({ id, url: '', name: file.name, size: file.size, pending: true }))]);
-    const label = files.some(isHeicFile) ? 'Converting photos' : 'Adding images';
-    setBusy(`${label}… 0 of ${files.length}`);
-    try {
-      for (let i = 0; i < queue.length; i += BATCH) {
-        const ready = await Promise.all(
-          queue.slice(i, i + BATCH).map(async ({ id, file }) => {
-            const converted = await processFileForImageUpload(file);
-            return { id, url: URL.createObjectURL(converted), thumb: await makeThumb(converted), size: converted.size };
-          }),
-        );
-        setImages((prev) => prev.map((img) => ({ ...img, ...ready.find((r) => r.id === img.id), pending: img.pending && !ready.some((r) => r.id === img.id) })));
-        setBusy(`${label}… ${Math.min(i + BATCH, files.length)} of ${files.length}`);
-      }
-    } catch (err) {
-      console.error('Error processing dropped images', err);
-    } finally {
-      setBusy(null);
-    }
-  }, []);
+    if (files.length) previews.add(files);
+  };
 
   const dropzone = useDropzone({ onDrop, accept: ACCEPT, multiple: true });
 
-  const rotate = async (id: string) => {
-    const img = images.find((i) => i.id === id);
+  // card actions stay the same functions across renders and read the latest list from here
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+
+  const rotate = useCallback(async (id: string) => {
+    const img = imagesRef.current.find((i) => i.id === id);
     if (!img) return;
     try {
       const url = await rotateImage(await imageToCanvas(img.url), 90);
@@ -219,9 +326,20 @@ export default function ImageToPdf() {
     } catch (err) {
       console.error('Rotate error', err);
     }
-  };
+  }, []);
+
+  const removeImage = useCallback(
+    (id: string) => {
+      const img = imagesRef.current.find((i) => i.id === id);
+      previews.forget([id]);
+      if (img) revoke(img);
+      setImages((prev) => prev.filter((i) => i.id !== id));
+    },
+    [previews],
+  );
 
   const startOver = () => {
+    previews.forget(images.map((img) => img.id));
     images.forEach(revoke);
     setImages([]);
   };
@@ -231,11 +349,17 @@ export default function ImageToPdf() {
     setImages((items) => arrayMove(items, items.findIndex((i) => i.id === active.id), items.findIndex((i) => i.id === over.id)));
   };
 
-  const startCrop = (image: ImageData) => {
+  const startCrop = useCallback((id: string) => {
+    const img = imagesRef.current.find((i) => i.id === id);
+    if (!img) return;
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    setCropping(image);
-  };
+    setCropping(img);
+  }, []);
+
+  // the drag list only cares about the order, not about previews landing
+  const order = images.map((img) => img.id).join(',');
+  const ids = useMemo(() => (order ? order.split(',') : []), [order]);
 
   const applyCrop = async () => {
     if (!cropping || !croppedAreaPixels) return;
@@ -367,19 +491,17 @@ export default function ImageToPdf() {
         )}
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={images} strategy={rectSortingStrategy}>
+          <SortableContext items={ids} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {images.map((image, index) => (
                 <ImageCard
                   key={image.id}
                   image={image}
                   index={index}
-                  onRemove={() => {
-                    revoke(image);
-                    setImages((prev) => prev.filter((i) => i.id !== image.id));
-                  }}
-                  onCrop={() => startCrop(image)}
-                  onRotate={() => rotate(image.id)}
+                  onRemove={removeImage}
+                  onCrop={startCrop}
+                  onRotate={rotate}
+                  watch={previews.watch}
                 />
               ))}
               <div
