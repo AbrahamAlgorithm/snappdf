@@ -44,6 +44,7 @@ function photo({
   paper = [242, 240, 234],
   ruled = false,
   box = false,
+  spiral = false,
   light = () => 1,
   seed = 1,
 }: {
@@ -54,6 +55,7 @@ function photo({
   paper?: RGB;
   ruled?: boolean;
   box?: boolean;
+  spiral?: boolean; // rings down the left side, like a notebook
   light?: (x: number, y: number) => number;
   seed?: number;
 }): Pixels {
@@ -66,7 +68,10 @@ function photo({
     for (let x = 0; x < w; x++) {
       const { u, v } = map(x + 0.5, y + 0.5);
       let color: RGB;
-      if (u >= 0 && u < 1 && v >= 0 && v < 1) {
+      const ring = spiral && u > -0.05 && u < 0.04 && v > 0.02 && v < 0.98 && (v * 28) % 1 < 0.35;
+      if (ring) {
+        color = [72, 72, 78];
+      } else if (u >= 0 && u < 1 && v >= 0 && v < 1) {
         color = [...paper] as RGB;
         const row = v * 30;
         const inText = v > 0.1 && v < 0.85 && u > 0.1 && u < 0.9 && row % 1 > 0.35 && row % 1 < 0.65;
@@ -119,6 +124,23 @@ describe('detectPage', () => {
     const found = detectPage(photo(scene));
 
     expect(cornerError(found, scene.page)).toBeLessThan(0.02);
+  });
+
+  // the facing page of the notebook is the same white paper, only the rings mark where this page starts
+  it('finds a spiral notebook page next to its facing page', () => {
+    const page = q(70, 50, 255, 60, 260, 350, 65, 345);
+    const facing = (x: number, y: number): RGB => (x < 70 && y > 30 && y < 370 ? [236, 234, 228] : cloth(x, y));
+    const found = detectPage(photo({ page, background: facing, spiral: true, ruled: true }));
+
+    expect(cornerError(found, page)).toBeLessThan(0.03);
+  });
+
+  it('uses the edge of the photo when the page runs off it', () => {
+    // the bottom of the page is below the photo
+    const found = detectPage(photo({ page: q(50, 60, 250, 65, 255, 460, 45, 455), background: wood }));
+
+    const inFrame = q(50, 60, 250, 65, 254, 399, 46, 399);
+    expect(cornerError(found, inFrame)).toBeLessThan(0.02);
   });
 
   it('finds nothing in a photo with no page', () => {

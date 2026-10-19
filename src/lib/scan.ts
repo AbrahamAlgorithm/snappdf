@@ -8,7 +8,7 @@ export type Pixels = { data: Uint8ClampedArray; width: number; height: number };
 // the page is looked for on a small copy of the photo, plenty to find the edges and quick on any phone
 export const DETECT_SIZE = 400;
 
-type Line = { t: number; rho: number; cos: number; sin: number; votes: number };
+type Line = { t: number; rho: number; cos: number; sin: number; votes: number; border?: boolean };
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -41,6 +41,51 @@ function quantile(values: Float32Array | number[], q: number) {
   const sorted = Float32Array.from(values).sort();
   return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] : 0;
 }
+
+type Field = { gx: Float32Array; gy: Float32Array; mag: Float32Array; edges: number[]; strong: number };
+
+// how strong the edge is at each pixel and which way it faces (from the colour that changes most),
+// then thinned to one-pixel lines, keeping only the peak across each edge
+function edgeField(channels: Float32Array[], w: number, h: number, minEdge: number): Field {
+  const n = w * h;
+  const gx = new Float32Array(n);
+  const gy = new Float32Array(n);
+  const mag = new Float32Array(n);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      let best = -1;
+      for (const ch of channels) {
+        const sx = ch[i - w + 1] + 2 * ch[i + 1] + ch[i + w + 1] - ch[i - w - 1] - 2 * ch[i - 1] - ch[i + w - 1];
+        const sy = ch[i + w - 1] + 2 * ch[i + w] + ch[i + w + 1] - ch[i - w - 1] - 2 * ch[i - w] - ch[i - w + 1];
+        const m = sx * sx + sy * sy;
+        if (m > best) {
+          best = m;
+          gx[i] = sx;
+          gy[i] = sy;
+        }
+      }
+      mag[i] = Math.sqrt(best);
+    }
+  }
+  const edges: number[] = [];
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      const i = y * w + x;
+      const m = mag[i];
+      if (m < minEdge) continue;
+      const a = ((Math.atan2(gy[i], gx[i]) * 180) / Math.PI + 180) % 180;
+      const o = a < 22.5 || a >= 157.5 ? 1 : a < 67.5 ? w + 1 : a < 112.5 ? w : w - 1;
+      if (m >= mag[i + o] && m >= mag[i - o]) edges.push(i);
+    }
+  }
+  const strong = edges.length ? quantile(
+    edges.map((i) => mag[i]),
+    0.9,
+  ) : 1;
+  return { gx, gy, mag, edges, strong };
+}
+
 
 function intersect(a: Line, b: Line, cx: number, cy: number): Point | null {
   const det = a.cos * b.sin - a.sin * b.cos;
@@ -93,51 +138,17 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
   if (w < 32 || h < 32) return null;
 
   // 1. smooth each colour, a page on a coloured cloth can be the same brightness but a different colour
-  const channels = [0, 1, 2].map((c) => {
+  const fine = [0, 1, 2].map((c) => {
     const ch = new Float32Array(n);
     for (let i = 0; i < n; i++) ch[i] = data[i * 4 + c];
     return blur(blur(ch, w, h, 2), w, h, 2);
   });
+  // and a much blurrier copy. up close a spiral binding is a row of little rings, blurred it's one dark band with a clean edge
+  const coarse = fine.map((ch) => blur(blur(ch, w, h, 5), w, h, 5));
 
-  // 2. how strong the edge is at each pixel and which way it faces, from the colour that changes most
-  const gx = new Float32Array(n);
-  const gy = new Float32Array(n);
-  const mag = new Float32Array(n);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = y * w + x;
-      let best = -1;
-      for (const ch of channels) {
-        const sx = ch[i - w + 1] + 2 * ch[i + 1] + ch[i + w + 1] - ch[i - w - 1] - 2 * ch[i - 1] - ch[i + w - 1];
-        const sy = ch[i + w - 1] + 2 * ch[i + w] + ch[i + w + 1] - ch[i - w - 1] - 2 * ch[i - w] - ch[i - w + 1];
-        const m = sx * sx + sy * sy;
-        if (m > best) {
-          best = m;
-          gx[i] = sx;
-          gy[i] = sy;
-        }
-      }
-      mag[i] = Math.sqrt(best);
-    }
-  }
-
-  // 3. thin the edges to one pixel, keeping only the peak across each edge
-  const edges: number[] = [];
-  for (let y = 2; y < h - 2; y++) {
-    for (let x = 2; x < w - 2; x++) {
-      const i = y * w + x;
-      const m = mag[i];
-      if (m < 30) continue;
-      const a = ((Math.atan2(gy[i], gx[i]) * 180) / Math.PI + 180) % 180;
-      const o = a < 22.5 || a >= 157.5 ? 1 : a < 67.5 ? w + 1 : a < 112.5 ? w : w - 1;
-      if (m >= mag[i + o] && m >= mag[i - o]) edges.push(i);
-    }
-  }
-  if (edges.length < 50) return null;
-  const strong = quantile(
-    edges.map((i) => mag[i]),
-    0.9,
-  );
+  // 2. edges at both scales
+  const fields = [edgeField(fine, w, h, 30), edgeField(coarse, w, h, 8)];
+  if (fields[0].edges.length < 50) return null;
 
   // 4. hough transform: every edge pixel votes for the lines it could sit on, facing the way its edge faces
   const cx = w / 2;
@@ -151,19 +162,20 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
     sin[t] = Math.sin((t * Math.PI) / 180);
   }
   const votes = new Float32Array(180 * rhoBins);
-  for (const i of edges) {
-    const x = (i % w) - cx;
-    const y = Math.floor(i / w) - cy;
-    let normal = Math.atan2(gy[i], gx[i]);
-    if (normal < 0) normal += Math.PI;
-    const t0 = Math.round((normal * 180) / Math.PI);
-    const weight = Math.min(mag[i] / strong, 1);
-    // real edges wobble, ruled lines or paper grain touching them can turn them several degrees
-    for (let dt = -6; dt <= 6; dt++) {
-      const t = (t0 + dt + 180) % 180;
-      votes[t * rhoBins + Math.round(x * cos[t] + y * sin[t]) + maxRho] += weight;
+  for (const { gx, gy, mag, edges, strong } of fields)
+    for (const i of edges) {
+      const x = (i % w) - cx;
+      const y = Math.floor(i / w) - cy;
+      let normal = Math.atan2(gy[i], gx[i]);
+      if (normal < 0) normal += Math.PI;
+      const t0 = Math.round((normal * 180) / Math.PI);
+      const weight = Math.min(mag[i] / strong, 1);
+      // real edges wobble, ruled lines or paper grain touching them can turn them several degrees
+      for (let dt = -6; dt <= 6; dt++) {
+        const t = (t0 + dt + 180) % 180;
+        votes[t * rhoBins + Math.round(x * cos[t] + y * sin[t]) + maxRho] += weight;
+      }
     }
-  }
   // pool each vote with its neighbours, an edge that drifts a pixel still adds up to one line
   const acc = new Float32Array(180 * rhoBins);
   for (let t = 0; t < 180; t++)
@@ -176,8 +188,8 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
       acc[t * rhoBins + r] = sum / 3;
     }
 
-  // 5. the strongest separate lines
-  const minVotes = Math.min(w, h) * 0.12;
+  // 5. the strongest separate lines. faint ones count too, a spiral binding or a torn edge only leaves a broken line
+  const minVotes = Math.min(w, h) * 0.06;
   const peaks: Line[] = [];
   for (let t = 0; t < 180; t++) {
     for (let r = 1; r < rhoBins - 1; r++) {
@@ -194,7 +206,7 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
   peaks.sort((a, b) => b.votes - a.votes);
   const lines: Line[] = [];
   for (const p of peaks) {
-    if (lines.length >= 14) break;
+    if (lines.length >= 24) break;
     const near = lines.some((l) => {
       const d = Math.abs(l.t - p.t);
       // a line at 2 degrees and one at 178 face opposite ways, so their distances flip sign
@@ -202,34 +214,78 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
     });
     if (!near) lines.push(p);
   }
-  if (lines.length < 4) return null;
+  if (lines.length < 2) return null;
+  // the photo's own edges stand in for a side when the page runs off the photo
+  const borders: Line[] = [
+    { t: 90, rho: 1 - cy },
+    { t: 90, rho: h - 2 - cy },
+    { t: 0, rho: 1 - cx },
+    { t: 0, rho: w - 2 - cx },
+  ].map((b) => ({ ...b, cos: cos[b.t], sin: sin[b.t], votes: 0, border: true }));
+  const candidates = [...lines, ...borders];
+  const onBorder = (p: Point, q: Point) =>
+    (p.x < 3 && q.x < 3) || (p.y < 3 && q.y < 3) || (p.x > w - 4 && q.x > w - 4) || (p.y > h - 4 && q.y > h - 4);
 
-  // 6. how much of a side runs along a real edge, facing the right way. sides off the photo don't count
-  const sideScore = (p: Point, q: Point) => {
+  // 6. how much of a side runs along a real edge facing the right way, at either scale
+  const edgeSupport = (p: Point, q: Point) => {
     const len = Math.hypot(q.x - p.x, q.y - p.y);
     const nx = -(q.y - p.y) / len;
     const ny = (q.x - p.x) / len;
+    let bestField = 0;
+    for (const { gx, gy, mag, strong } of fields) {
+      let total = 0;
+      let count = 0;
+      for (let s = 0; s < 32; s++) {
+        const f = 0.04 + (0.92 * s) / 31;
+        const x = p.x + (q.x - p.x) * f;
+        const y = p.y + (q.y - p.y) * f;
+        if (x < 2 || y < 2 || x > w - 3 || y > h - 3) continue;
+        count++;
+        let best = 0;
+        for (let d = -2; d <= 2; d++) {
+          const xi = Math.round(x + nx * d);
+          const yi = Math.round(y + ny * d);
+          if (xi < 1 || yi < 1 || xi > w - 2 || yi > h - 2) continue;
+          const i = yi * w + xi;
+          const m = mag[i];
+          if (m < 1 || Math.abs((gx[i] * nx + gy[i] * ny) / m) < 0.8) continue;
+          best = Math.max(best, Math.min(m / strong, 1));
+        }
+        total += best;
+      }
+      if (count < 8) return null;
+      bestField = Math.max(bestField, total / count);
+    }
+    return bestField;
+  };
+
+  // and how different it looks just inside the side from just outside. a page edge has paper on one side and
+  // table (or a spiral) on the other, a ruled line or a table printed on the page has paper on both
+  const contrast = (p: Point, q: Point, centre: Point) => {
+    const len = Math.hypot(q.x - p.x, q.y - p.y);
+    let nx = -(q.y - p.y) / len;
+    let ny = (q.x - p.x) / len;
+    if (nx * (centre.x - (p.x + q.x) / 2) + ny * (centre.y - (p.y + q.y) / 2) < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
     let total = 0;
     let count = 0;
-    for (let s = 0; s < 32; s++) {
-      const f = 0.04 + (0.92 * s) / 31;
+    for (let s = 0; s < 24; s++) {
+      const f = 0.06 + (0.88 * s) / 23;
       const x = p.x + (q.x - p.x) * f;
       const y = p.y + (q.y - p.y) * f;
-      if (x < 2 || y < 2 || x > w - 3 || y > h - 3) continue;
+      const xi = Math.round(x + nx * 6);
+      const yi = Math.round(y + ny * 6);
+      const xo = Math.round(x - nx * 6);
+      const yo = Math.round(y - ny * 6);
+      if (Math.min(xi, xo, yi, yo) < 0 || Math.max(xi, xo) > w - 1 || Math.max(yi, yo) > h - 1) continue;
       count++;
-      let best = 0;
-      for (let d = -2; d <= 2; d++) {
-        const xi = Math.round(x + nx * d);
-        const yi = Math.round(y + ny * d);
-        if (xi < 1 || yi < 1 || xi > w - 2 || yi > h - 2) continue;
-        const i = yi * w + xi;
-        const m = mag[i];
-        if (m < 1 || Math.abs((gx[i] * nx + gy[i] * ny) / m) < 0.8) continue;
-        best = Math.max(best, Math.min(m / strong, 1));
-      }
-      total += best;
+      let diff = 0;
+      for (const ch of coarse) diff = Math.max(diff, Math.abs(ch[yi * w + xi] - ch[yo * w + xo]));
+      total += Math.min(diff / 40, 1);
     }
-    return count >= 8 ? total / count : null;
+    return count >= 6 ? total / count : null;
   };
 
   // 7. try every 4 lines as two pairs of opposite sides, keep the best page-shaped outline
@@ -241,11 +297,13 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
     [0, 2, 1, 3],
     [0, 3, 1, 2],
   ];
-  for (let a = 0; a < lines.length; a++)
-    for (let b = a + 1; b < lines.length; b++)
-      for (let c = b + 1; c < lines.length; c++)
-        for (let d = c + 1; d < lines.length; d++) {
-          const four = [lines[a], lines[b], lines[c], lines[d]];
+  for (let a = 0; a < candidates.length; a++)
+    for (let b = a + 1; b < candidates.length; b++)
+      for (let c = b + 1; c < candidates.length; c++)
+        for (let d = c + 1; d < candidates.length; d++) {
+          const four = [candidates[a], candidates[b], candidates[c], candidates[d]];
+          // at most two sides can be the photo's edge, otherwise it's just the whole photo
+          if (four.filter((l) => l.border).length > 2) continue;
           for (const [i1, i2, j1, j2] of pairings) {
             const [A, B, C, D] = [four[i1], four[i2], four[j1], four[j2]];
             if (lineAngle(A, B) > 35 || lineAngle(C, D) > 35 || lineAngle(A, C) < 45) continue;
@@ -257,6 +315,7 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
             if (area < 0.05) continue;
             let ok = true;
             const scores: number[] = [];
+            const centre = { x: quad.reduce((sum, p) => sum + p.x, 0) / 4, y: quad.reduce((sum, p) => sum + p.y, 0) / 4 };
             for (let k = 0; k < 4 && ok; k++) {
               const p = quad[k];
               const q = quad[(k + 1) % 4];
@@ -269,13 +328,19 @@ export function detectPage({ data, width: w, height: h }: Pixels): Quad | null {
               const v2y = r.y - q.y;
               const angle = (Math.acos((v1x * v2x + v1y * v2y) / (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y))) * 180) / Math.PI;
               if (angle < 50 || angle > 130) ok = false;
-              const s = sideScore(p, q);
-              if (s !== null) {
-                if (s < 0.35) ok = false;
-                scores.push(s);
+              // a side along the photo's edge can't be checked, it gets a middling score so a real edge beats it
+              if (onBorder(p, q)) {
+                scores.push(0.35);
+                continue;
               }
+              const edge = edgeSupport(p, q);
+              const across = contrast(p, q, centre);
+              if (edge !== null && across !== null) scores.push((edge + across) / 2);
             }
-            if (!ok || scores.length < 3) continue;
+            // one side may be weak (a spiral binding, a thumb over it), the rest have to be clear
+            const weakest = [...scores].sort((x, y) => x - y);
+            if (scores.length < 3 || weakest[0] < 0.12 || weakest[1] < 0.3) ok = false;
+            if (!ok) continue;
             const support = scores.reduce((sum, s) => sum + s, 0) / scores.length;
             // clear edges matter most, a bigger outline wins a close call
             const score = support * (0.6 + 0.4 * area);
