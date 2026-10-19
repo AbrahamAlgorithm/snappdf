@@ -212,6 +212,7 @@ export function UploadCard({
   button,
   formats,
   busy,
+  extra,
 }: {
   tool: Tool;
   dropzone: Pick<DropzoneState, 'getRootProps' | 'getInputProps' | 'isDragActive' | 'open'>;
@@ -220,6 +221,7 @@ export function UploadCard({
   button: string;
   formats: string;
   busy?: string | null;
+  extra?: ReactNode; // another button next to the main one
 }) {
   const { getRootProps, getInputProps, isDragActive, open } = dropzone;
   return (
@@ -243,18 +245,20 @@ export function UploadCard({
             <ToolIcon tool={tool} size="lg" />
             <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.03em] sm:text-[26px]">{isDragActive ? 'Drop to add' : title}</h2>
             <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-ink/60">{hint}</p>
-            <Button
-              variant="primary"
-              size="lg"
-              className="mt-7"
-              onClick={(e) => {
-                e.stopPropagation();
-                open();
-              }}
-            >
-              <Upload size={18} />
-              {button}
-            </Button>
+            <div className="mt-7 flex flex-wrap justify-center gap-2.5">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  open();
+                }}
+              >
+                <Upload size={18} />
+                {button}
+              </Button>
+              {extra}
+            </div>
             <p className="mt-5 text-[13px] text-ink/45">{formats}</p>
           </>
         )}

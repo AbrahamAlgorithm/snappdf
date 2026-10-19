@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
-import { Crop, Download, ImagePlus, RotateCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Camera, Crop, Download, ImagePlus, RotateCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import Cropper, { type Area, type Point } from 'react-easy-crop';
 import {
   closestCenter,
@@ -56,6 +56,9 @@ const ACCEPT = {
 const newId = () => Math.random().toString(36).substring(7);
 
 const THUMB_WIDTH = 600;
+
+// phones and tablets get a button that opens the camera, desktops just pick files
+const HAS_CAMERA = window.matchMedia('(pointer: coarse)').matches;
 
 // previews made at once. past 4 each one gets slower and the first screen shows up later, low-memory phones get fewer
 const WORKERS = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 2, (navigator as { deviceMemory?: number }).deviceMemory ?? 8));
@@ -311,6 +314,22 @@ export default function ImageToPdf() {
 
   const dropzone = useDropzone({ onDrop, accept: ACCEPT, multiple: true });
 
+  // every camera shot comes back as "image.jpg", so number them instead
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const photoCount = useRef(0);
+  const onPhoto = (e: ChangeEvent<HTMLInputElement>) => {
+    const photos = [...(e.target.files ?? [])].map(
+      (file) => new File([file], `Photo ${++photoCount.current}${file.name.match(/\.\w+$/)?.[0] ?? '.jpg'}`, { type: file.type, lastModified: file.lastModified }),
+    );
+    e.target.value = '';
+    if (photos.length) previews.add(photos);
+  };
+  const takePhoto = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    cameraInput.current?.click();
+  };
+  const cameraField = HAS_CAMERA && <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onPhoto} />;
+
   // card actions stay the same functions across renders and read the latest list from here
   const imagesRef = useRef(images);
   imagesRef.current = images;
@@ -397,7 +416,16 @@ export default function ImageToPdf() {
           button="Choose images"
           formats="JPG, PNG, HEIC, WEBP, GIF and BMP"
           busy={busy}
+          extra={
+            HAS_CAMERA && (
+              <Button variant="outline" size="lg" onClick={takePhoto}>
+                <Camera size={18} />
+                Take photo
+              </Button>
+            )
+          }
         />
+        {cameraField}
       </ToolShell>
     );
   }
@@ -516,9 +544,21 @@ export default function ImageToPdf() {
                 <ImagePlus size={24} />
                 <span className="text-[14px] font-medium">Add images</span>
               </div>
+              {/* at the end of the grid, so scanning page after page is one tap each */}
+              {HAS_CAMERA && (
+                <button
+                  type="button"
+                  onClick={takePhoto}
+                  className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-line text-ink/55 transition-colors hover:border-ink/25 hover:text-ink"
+                >
+                  <Camera size={24} />
+                  <span className="text-[14px] font-medium">Take photo</span>
+                </button>
+              )}
             </div>
           </SortableContext>
         </DndContext>
+        {cameraField}
       </Workbench>
 
       <Dialog open={!!cropping} onClose={() => setCropping(null)} labelledBy="crop-title" className="max-w-3xl overflow-hidden p-0">
