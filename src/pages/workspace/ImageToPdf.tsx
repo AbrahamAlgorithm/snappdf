@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
-import { Camera, Crop, Download, ImagePlus, RotateCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
-import Cropper, { type Area, type Point } from 'react-easy-crop';
+import { Camera, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
 import {
   closestCenter,
   DndContext,
@@ -15,9 +14,9 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { saveAs } from 'file-saver';
+import { CornerEditor } from '@/components/CornerEditor';
 import {
   Button,
-  Dialog,
   formatSize,
   IconButton,
   NameDialog,
@@ -30,8 +29,9 @@ import {
 } from '@/components/toolkit';
 import { isHeicFile, processFileForImageUpload } from '@/lib/heicUtils';
 import { imagesToPdf } from '@/lib/pdfUtils';
+import { findPage, flattenPage, type Quad } from '@/lib/scan';
 import { getTool } from '@/lib/site';
-import { cn, cropImage, imageToCanvas, rotateImage } from '@/lib/utils';
+import { cn, imageToCanvas, rotateImage } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
 
 type ImageData = {
@@ -41,6 +41,9 @@ type ImageData = {
   name: string;
   size: number;
   pending?: boolean; // still converting or making the preview
+  photo?: Blob; // the image as it was added (heic already converted), crops always start from this
+  corners?: Quad | null; // where the page sits in the photo, null for the whole photo
+  turns?: number; // quarter turns clockwise, done after the crop
 };
 
 const tool = getTool('image-to-pdf');
@@ -94,16 +97,22 @@ const revoke = (img: Pick<ImageData, 'url' | 'thumb'>) => {
   if (img.thumb) URL.revokeObjectURL(img.thumb);
 };
 
-type Job = { id: string; file: File };
-type Ready = { id: string; url: string; thumb?: string; size: number };
+type Job = { id: string; file: File; scan: boolean };
+type Ready = Pick<ImageData, 'id' | 'url' | 'thumb' | 'size' | 'photo' | 'corners'>;
 
-// heic gets converted, then a small preview is made
-async function prepare({ id, file }: Job): Promise<Ready> {
+// heic gets converted, camera shots get cropped to the page and flattened, then a small preview is made
+async function prepare({ id, file, scan }: Job): Promise<Ready> {
   try {
-    const converted = await processFileForImageUpload(file);
-    return { id, url: URL.createObjectURL(converted), thumb: await makeThumb(converted), size: converted.size };
+    const photo = await processFileForImageUpload(file);
+    let page: Blob = photo;
+    let corners: Quad | null = null;
+    if (scan) {
+      corners = await findPage(photo).catch(() => null);
+      if (corners) page = await flattenPage(photo, corners);
+    }
+    return { id, url: URL.createObjectURL(page), thumb: await makeThumb(page), size: page.size, photo, corners };
   } catch {
-    return { id, url: URL.createObjectURL(file), size: file.size };
+    return { id, url: URL.createObjectURL(file), size: file.size, photo: file };
   }
 }
 
@@ -173,8 +182,9 @@ function usePreviewQueue(setImages: Dispatch<SetStateAction<ImageData[]>>, setBu
     };
 
     return {
-      add(files: File[]) {
-        const added = files.map((file) => ({ id: newId(), file }));
+      // scan: find the page in each photo and flatten it, for camera shots
+      add(files: File[], scan = false) {
+        const added = files.map((file) => ({ id: newId(), file, scan }));
         added.forEach((job) => alive.add(job.id));
         jobs.push(...added);
         stats.total += added.length;
@@ -290,10 +300,7 @@ export default function ImageToPdf() {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
 
-  const [cropping, setCropping] = useState<ImageData | null>(null);
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [cropping, setCropping] = useState<{ id: string; src: string; photo: Blob; corners: Quad | null } | null>(null);
   useReportWork(tool.id, images.length > 0);
   const previews = usePreviewQueue(setImages, setBusy);
 
@@ -322,7 +329,7 @@ export default function ImageToPdf() {
       (file) => new File([file], `Photo ${++photoCount.current}${file.name.match(/\.\w+$/)?.[0] ?? '.jpg'}`, { type: file.type, lastModified: file.lastModified }),
     );
     e.target.value = '';
-    if (photos.length) previews.add(photos);
+    if (photos.length) previews.add(photos, true);
   };
   const takePhoto = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
@@ -340,8 +347,8 @@ export default function ImageToPdf() {
     try {
       const url = await rotateImage(await imageToCanvas(img.url), 90);
       const thumb = await makeThumb(url);
-      if (img.thumb) URL.revokeObjectURL(img.thumb);
-      setImages((prev) => prev.map((i) => (i.id === id ? { ...i, url, thumb } : i)));
+      revoke(img);
+      setImages((prev) => prev.map((i) => (i.id === id ? { ...i, url, thumb, turns: ((i.turns ?? 0) + 1) % 4 } : i)));
     } catch (err) {
       console.error('Rotate error', err);
     }
@@ -368,29 +375,41 @@ export default function ImageToPdf() {
     setImages((items) => arrayMove(items, items.findIndex((i) => i.id === active.id), items.findIndex((i) => i.id === over.id)));
   };
 
+  // the crop always works on the photo as it was added, so a page cut too tight can be widened again
   const startCrop = useCallback((id: string) => {
     const img = imagesRef.current.find((i) => i.id === id);
-    if (!img) return;
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setCropping(img);
+    if (!img?.photo) return;
+    setCropping({ id, src: URL.createObjectURL(img.photo), photo: img.photo, corners: img.corners ?? null });
   }, []);
+
+  const closeCrop = () => {
+    if (cropping) URL.revokeObjectURL(cropping.src);
+    setCropping(null);
+  };
 
   // the drag list only cares about the order, not about previews landing
   const order = images.map((img) => img.id).join(',');
   const ids = useMemo(() => (order ? order.split(',') : []), [order]);
 
-  const applyCrop = async () => {
-    if (!cropping || !croppedAreaPixels) return;
+  const applyCrop = async (corners: Quad | null) => {
+    const img = cropping && imagesRef.current.find((i) => i.id === cropping.id);
+    if (!img?.photo) return closeCrop();
     try {
-      const url = await cropImage(cropping.url, croppedAreaPixels);
+      const page = corners ? await flattenPage(img.photo, corners) : img.photo;
+      let url = URL.createObjectURL(page);
+      // turned pages stay turned
+      if (img.turns) {
+        const turned = await rotateImage(await imageToCanvas(url), 90 * img.turns);
+        URL.revokeObjectURL(url);
+        url = turned;
+      }
       const thumb = await makeThumb(url);
-      if (cropping.thumb) URL.revokeObjectURL(cropping.thumb);
-      setImages((prev) => prev.map((i) => (i.id === cropping.id ? { ...i, url, thumb } : i)));
-      setCropping(null);
+      revoke(img);
+      setImages((prev) => prev.map((i) => (i.id === img.id ? { ...i, url, thumb, corners, size: page.size } : i)));
     } catch (err) {
       console.error('Crop error', err);
     }
+    closeCrop();
   };
 
   const generate = async (fileName: string) => {
@@ -561,54 +580,13 @@ export default function ImageToPdf() {
         {cameraField}
       </Workbench>
 
-      <Dialog open={!!cropping} onClose={() => setCropping(null)} labelledBy="crop-title" className="max-w-3xl overflow-hidden p-0">
-        {cropping && (
-          <>
-            <div className="flex items-center justify-between px-6 pb-4 pt-5">
-              <h2 id="crop-title" className="text-[20px] font-semibold tracking-[-0.02em]">
-                Crop image
-              </h2>
-              <IconButton label="Close" onClick={() => setCropping(null)}>
-                <X size={20} />
-              </IconButton>
-            </div>
-            <div className="relative h-[55vh] bg-[#18181b]">
-              <Cropper
-                image={cropping.url}
-                crop={crop}
-                zoom={zoom}
-                onCropChange={setCrop}
-                onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
-                onZoomChange={setZoom}
-              />
-            </div>
-            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:px-6">
-              <div className="flex flex-1 items-center gap-3 text-ink/50">
-                <ZoomOut size={18} aria-hidden="true" />
-                <input
-                  type="range"
-                  min="1"
-                  max="3"
-                  step="0.01"
-                  value={zoom}
-                  aria-label="Zoom"
-                  onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="min-w-0 flex-1 cursor-pointer accent-ink"
-                />
-                <ZoomIn size={18} aria-hidden="true" />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setCropping(null)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" onClick={applyCrop}>
-                  Apply crop
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </Dialog>
+      <CornerEditor
+        src={cropping?.src ?? null}
+        corners={cropping?.corners ?? null}
+        onDetect={() => (cropping ? findPage(cropping.photo) : Promise.resolve(null))}
+        onCancel={closeCrop}
+        onApply={applyCrop}
+      />
 
       <NameDialog
         suggested={suggestedName}

@@ -40,27 +40,3 @@ export async function rotateImage(canvas: HTMLCanvasElement, degrees: number): P
 
   return newCanvas.toDataURL("image/jpeg", 0.95);
 }
-
-export async function cropImage(src: string, pixelCrop: { x: number; y: number; width: number; height: number }): Promise<string> {
-  const canvas = await imageToCanvas(src);
-  const newCanvas = document.createElement("canvas");
-  const ctx = newCanvas.getContext("2d");
-  if (!ctx) throw new Error("Could not get context");
-
-  newCanvas.width = pixelCrop.width;
-  newCanvas.height = pixelCrop.height;
-
-  ctx.drawImage(
-    canvas,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  );
-
-  return newCanvas.toDataURL("image/jpeg", 0.95);
-}
