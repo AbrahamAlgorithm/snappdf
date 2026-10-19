@@ -1,117 +1,109 @@
-# snappdf
+<div align="center">
 
-**Your files never leave your device.** snappdf is a free, open-source PDF toolkit that runs entirely in your browser: no uploads, no sign-ups, no watermarks.
+<img src=".github/assets/banner.png" alt="snappdf: PDF tools that never upload your files" width="100%">
 
-![snappdf](.github/assets/cover.png)
+<br>
+<br>
 
-**[Open snappdf](https://snappdf.abrahamalgorithm.tech)** · [Privacy policy](https://snappdf.abrahamalgorithm.tech/privacy) · [Report a bug or request a feature](https://snappdf.abrahamalgorithm.tech/report)
+<img src="https://img.shields.io/badge/React-19-333?style=flat-square&logo=react&logoColor=white&labelColor=111" alt="React 19">
+<img src="https://img.shields.io/badge/TypeScript-5.8-333?style=flat-square&logo=typescript&logoColor=white&labelColor=111" alt="TypeScript 5.8">
+<img src="https://img.shields.io/badge/Vite-6-333?style=flat-square&logo=vite&logoColor=white&labelColor=111" alt="Vite 6">
+<img src="https://img.shields.io/badge/Tailwind_CSS-4-333?style=flat-square&logo=tailwindcss&logoColor=white&labelColor=111" alt="Tailwind CSS 4">
+<img src="https://img.shields.io/badge/pdf.js-6-333?style=flat-square&logo=mozilla&logoColor=white&labelColor=111" alt="pdf.js 6">
+<img src="https://img.shields.io/badge/Node-22-333?style=flat-square&logo=nodedotjs&logoColor=white&labelColor=111" alt="Node 22">
+<img src="https://img.shields.io/badge/Deployed_on-Cloud_Run-333?style=flat-square&logo=googlecloud&logoColor=white&labelColor=111" alt="Deployed on Cloud Run">
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-333?style=flat-square&labelColor=111" alt="MIT license"></a>
+
+<br>
+<br>
+
+**[Open snappdf](https://snappdf.abrahamalgorithm.tech)** &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [How it works](#how-it-works) &nbsp;·&nbsp; [Run it locally](#run-it-locally)
+
+</div>
+
+<br>
+
+snappdf is a free PDF toolkit that runs entirely in your browser. Turn photos into a PDF, merge, split and sign PDFs. Your files are read and written on your device and never uploaded. There's no account to make and nothing gets a watermark.
+
+On a phone, take a photo of a page and snappdf finds its edges, straightens it and adds it as a flat page, like a scanner app. Once it's loaded, it keeps working with no internet.
 
 ## Features
 
-- **Image to PDF**: turn photos, screenshots and scans (including iPhone HEIC) into one PDF. Reorder, rotate and crop. On a phone, take photos with the camera and snappdf finds the page, crops it and straightens it, like a scanner app.
-- **Merge PDF**: combine PDFs in the order you choose, with every page previewed.
-- **Split PDF**: pick the pages you need and save them as a new PDF.
-- **Sign PDF**: draw or upload your signature and place it on any page.
-- **Text to PDF**: type, paste or open a text file and save it as a PDF.
-- **PDF to Word**: a Word file that looks just like the PDF, with every word editable. [How it works](#pdf-to-word).
-- **CSV and JSON**: convert to Excel, or JSON to CSV.
-- **Works offline**: after the first visit it opens and works with no internet, and installs like an app.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src=".github/assets/image-to-pdf.png" alt="Image to PDF with six photos of documents in a grid, and the PDF settings panel">
+      <p><b>Image to PDF</b><br>Photos, screenshots and scans, iPhone HEIC included, into one PDF. Drag them into order, rotate and crop them, and pick the quality to trade sharpness for file size.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/merge-pdf.png" alt="Merge PDF with three files in order, one opened to show its six pages numbered as they'll appear in the merged PDF">
+      <p><b>Merge PDF</b><br>Combine PDFs in the order you choose. Open any file to see all its pages and where each one lands in the merged PDF. Pages are copied as they are, at full quality.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src=".github/assets/sign-pdf.png" alt="Sign PDF with a drawn signature placed on the signature line of an agreement">
+      <p><b>Sign PDF</b><br>Draw your signature or upload a photo of it, then drag it into place, resize it and rotate it. A photo of a signature on paper can have its white background taken out.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/split-pdf.png" alt="Split PDF with three of six pages picked to keep">
+      <p><b>Split PDF</b><br>Tap the pages you want to keep, or type a range, and save them as a new PDF.</p>
+    </td>
+  </tr>
+</table>
 
-## How do I know my files stay private?
+### And the rest
 
-You don't have to take our word for it. It's enforced in four places you can check:
+- **CSV and JSON.** CSV to Excel, JSON to Excel and JSON to CSV.
+- **Works offline.** After the first visit the app is saved on your device, so it opens and works with no connection, and it installs like an app.
+- **Switch tools without losing work.** A tool you've opened keeps its files until you close the tab.
+- **A report form.** [Report a bug or request a feature](https://snappdf.abrahamalgorithm.tech/report) and it lands in the maintainer's inbox.
 
-1. **There's no upload step.** Every tool (pdf.js, pdf-lib, docx, the page finder) runs in your browser tab. Your files are read and written on your device.
-2. **The browser won't let the page send them anywhere.** The site's [Content-Security-Policy](nginx.conf) only allows the page to talk to its own server (`connect-src 'self'`), and every script and font comes from snappdf's own domain. There are no analytics, ads or third-party requests.
-3. **The server has nowhere to put them.** [nginx](nginx.conf) answers `GET` and `HEAD` only. The single `POST` it accepts is `/api/report`, the bug report form, which sends only what you type into it.
-4. **Try it yourself.** Open a tool, turn on airplane mode, and keep working. A service worker keeps a copy of the app, so nothing needs the network once it's loaded.
+### On your phone
 
-The [privacy policy](https://snappdf.abrahamalgorithm.tech/privacy) covers the rest, including what the server's request logs contain.
+The same tools, laid out for small screens. Take a photo of a page and snappdf finds it and flattens it. If it picks the wrong outline, drag the corners, with a magnifier under your finger.
 
-## How the scanner works
+<p align="center">
+  <img src=".github/assets/mobile.png" alt="snappdf on three phones: the corner editor around a photographed invoice, the flattened pages in Image to PDF, and Merge PDF" width="88%">
+</p>
 
-<p align="center"><img src=".github/assets/scanner.gif" width="360" alt="A photo of an invoice on a table: its edges are found, the page outline is picked, and it is straightened into a flat page"></p>
+## How it works
 
-When you take a photo in Image to PDF, snappdf finds the page (in under 20 ms on a laptop) and flattens it, with no library: [src/lib/scan.ts](src/lib/scan.ts) is plain pixel maths. OpenCV.js would have added an 8 MB download.
+<img src=".github/assets/architecture.png" alt="Every tool runs in the browser on your device. Cloud Run serves the app through nginx, which passes bug reports to a small Node sidecar that reads its keys from Secret Manager before emailing them. Pushes to main deploy through GitHub Actions with keyless login.">
 
-1. **Edges (Sobel).** The photo is shrunk to 400 px and blurred, then a Sobel filter measures how strongly and which way the colour changes at every pixel. It uses whichever colour channel changes most, so a white page on a cream cloth still has an edge. A second, blurrier copy turns a spiral binding's row of rings into one clean edge.
-2. **Straight lines (Hough transform).** Each edge pixel votes for the lines it could sit on, facing the way its edge faces. The 24 strongest distinct lines go forward. When a page runs off the photo, the photo's own border can stand in for that side.
-3. **Quad scoring.** Every four lines are tried as two pairs of opposite sides. Shapes that can't be a page are dropped: corners outside 50° to 130°, too small, or folded. The rest are scored on how much of each side runs along a real edge, and how different it looks just inside the side compared with just outside (paper against table). One weak side is allowed, for a spiral or a thumb.
-4. **Homography.** The eight numbers that map a rectangle onto the chosen corners are solved directly, and every pixel of the flat page is sampled from the photo.
-5. **Aspect ratio recovery.** A page shot at an angle looks shorter than it is. Its real width and height are recovered from the four corners and the camera geometry (Zhang and He, *Whiteboard scanning and image enhancement*, 2007), so an A4 page comes out A4-shaped.
+snappdf is a static React app. nginx serves it from Cloud Run, and everything you do with a file happens in your browser tab, so the server never sees your files. The only other thing the server does is pass bug reports to a small Node sidecar in the same Cloud Run service, which emails them to the maintainer.
 
-If it picks the wrong outline, the corner editor lets you drag the corners or edges, with a magnifier under your finger.
+## Security and privacy
 
-The [tests](src/lib/scan.test.ts) check it on generated photos: pages tilted and shot at an angle on cloth, wood and a light table, under uneven light and shadows, with ruled lines, a printed table, a spiral notebook and a page running off the photo. A stress test of 200 random photos has to find at least 95% of them within 2% of the true corners (it finds 193).
+- **Your files stay on your device.** There's no upload step. Every tool runs in your browser tab, and your files are read and written there.
+- **The browser enforces it.** The [Content-Security-Policy](nginx.conf) only lets the page talk to its own server (`connect-src 'self'`), and every script and font comes from snappdf's own domain. There are no analytics, ads or third-party requests.
+- **The server has nowhere to put them.** [nginx](nginx.conf) answers `GET` and `HEAD`. The only `POST` it accepts is `/api/report`, the bug report form, which sends only what you type into it and is capped at 16 KB.
+- **Try it yourself.** Open a tool, turn on airplane mode and keep working.
+- **No secrets in this repo.** The bug report sender's credentials sit in Secret Manager in production and in `.env` locally. Only the report sender can read them, and they never reach the browser.
+- **No stored cloud credentials.** Deploys log in to Google with Workload Identity Federation, and Google only accepts that login from this repo's `main` branch. The deploy account can push images and deploy this one service, nothing else.
+- **Small, locked-down containers.** nginx runs as a non-root user. The report sender has no npm dependencies, runs as the `node` user and listens on localhost only. CI installs packages with `--ignore-scripts` and fails on high-severity vulnerabilities in anything that ships.
 
-## PDF to Word
-
-A Word file should look like the PDF and still be editable, so there's one output that does both, made on your device ([src/lib/pdfToWord.ts](src/lib/pdfToWord.ts)). Each page becomes two layers:
-
-1. **The page without its words, behind everything.** pdf.js draws the page twice, once as it is and once with its text left out. The second drawing keeps every picture, colour, line, table border and logo exactly as it was.
-2. **The words on top, as real text.** Every line goes back where it was, in a Word text frame, in the same font, size, bold, italic and colour. Lines that belong together share one frame, so a paragraph stays a paragraph. [src/lib/pdfLayout.ts](src/lib/pdfLayout.ts) works out lines, paragraphs, columns and reading order from where the text sits.
-
-A PDF doesn't plainly say what colour its text is, so it's read from the two drawings: the pixels that changed are the letters, and their solid middles give the colour.
-
-| Kept | Not yet |
-| --- | --- |
-| The exact look: pictures, colours, lines and backgrounds | Tables are text over the drawn grid, not Word tables |
-| Every word editable, in its font, size and colour | Text you add grows its own frame, it doesn't push the rest of the page down |
-| Bold and italic, also in fonts embedded in the PDF | Reading text out of scanned pages (no OCR yet) |
-| Headings as Word heading styles, so the navigation pane works | Turned text (a side label, a stamp) stays part of the picture |
-| Columns, even ones that start part way down a page | |
-| Each page's size, so landscape stays landscape | |
-
-Word shows each font from your computer, so if you don't have the PDF's font it uses a close one. Scanned pages have no text to read, so they go in as pictures and you're told which ones.
-
-[Its tests](src/lib/pdfToWord.test.ts) build PDFs with known layouts, including fonts embedded the way real PDFs carry them, convert them, then unzip the `.docx` and check the XML: each line's frame where it was on the page, a paragraph kept in one frame, `<w:b/>` on bold words, text colours, `Heading1` styles, column order, page orientation, and scans detected.
-
-## How it's built
-
-A static React app served by nginx on Google Cloud Run, with a small Node sidecar for bug reports. Its email key lives in Secret Manager and only the sidecar can read it. Every push to `main` is tested and deployed from GitHub Actions, which logs in to Google with keyless Workload Identity Federation, so no cloud credentials are stored anywhere.
-
-![How snappdf fits together](.github/assets/architecture.png)
+The [privacy policy](https://snappdf.abrahamalgorithm.tech/privacy) covers the rest, including what the server's request logs contain. Found a vulnerability? Please report it privately through the repository's **Security** tab instead of opening a public issue.
 
 ## Run it locally
 
-You need Node.js 22.12 or newer.
+You'll need Node.js 22.12 or newer.
 
 ```bash
 git clone https://github.com/AbrahamAlgorithm/snappdf.git
 cd snappdf
 npm install
-npm run dev
+npm run dev                            # http://localhost:3000
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
-
-- `npm test` runs the tests: the page finder on generated photos, PDF to Word on fixture PDFs, merge, split and image to PDF, and the report server.
-- Offline mode only switches on in production builds, so try it with `npm run build && npm run preview`.
-- The report form works locally if `.env` has `RESEND_API_KEY` and `REPORT_TO`. Without them it says reports aren't set up, and everything else works as normal.
-
-## Contribution
-
-Contributions are welcome. To contribute:
-
-1. Fork the repository.
-2. Create a branch (`git checkout -b feat/your-feature`).
-3. Commit your changes.
-4. Push the branch and open a pull request.
-
-Every pull request runs the type check, tests, build, a security audit and both Docker builds before it can be merged.
-
-## Security
-
-Found a vulnerability? Please report it privately through the repository's **Security** tab ("Report a vulnerability") instead of opening a public issue.
+Offline mode only switches on in production builds, so try it with `npm run build && npm run preview`.
 
 ## License
 
-[MIT](LICENSE)
+MIT, see [LICENSE](LICENSE).
 
-## Author
+## Contact
 
-Built by **[Abraham Folorunso](https://abrahamalgorithm.tech)**.
+Built by Abraham Folorunso ([@AbrahamAlgorithm](https://github.com/AbrahamAlgorithm), [abrahamalgorithm.tech](https://abrahamalgorithm.tech)). Questions, ideas or bugs: the [report form](https://snappdf.abrahamalgorithm.tech/report), abrahamfolorunso6@gmail.com, or open an issue. Pull requests are welcome, and each one runs the type check, tests, build, audit and both Docker builds.
 
----
-
-If you find this project useful, please **⭐ Star** the repository!
+If snappdf is useful to you, a ⭐ on the repo helps others find it.
