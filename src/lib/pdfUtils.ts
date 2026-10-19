@@ -77,6 +77,53 @@ export async function renderPageImage(source: File | Uint8Array, index: number, 
   return { url: URL.createObjectURL(blob), width: viewport.width, height: viewport.height };
 }
 
+// what a merge card needs: page count, a small render of page 1, and whether it's locked
+export async function getPdfCover(file: File): Promise<{ pageCount: number; cover: string; locked: boolean }> {
+  const pdf = await openPdf(file);
+  // only encrypted pdfs have permissions, and pdf-lib can't copy pages out of those
+  const locked = (await pdf.getPermissions()) !== null;
+  const page = await pdf.getPage(1);
+  const width = 260 * Math.min(window.devicePixelRatio || 1, 2);
+  const viewport = page.getViewport({ scale: width / page.getViewport({ scale: 1 }).width });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not get canvas context');
+  await page.render({ canvas, canvasContext: context, viewport }).promise;
+  const cover = canvas.toDataURL('image/jpeg', 0.85);
+  canvas.width = 0;
+  canvas.height = 0;
+  return { pageCount: pdf.numPages, cover, locked };
+}
+
+// says which file broke a merge
+export class UnreadablePdfError extends Error {
+  constructor(
+    readonly fileName: string,
+    cause: unknown,
+  ) {
+    super(`Could not read ${fileName}`, { cause });
+  }
+}
+
+// joins whole files in the given order, every page copied as it is
+export async function mergePdfs(files: File[], onProgress?: (current: number, total: number) => void): Promise<Uint8Array> {
+  const merged = await PDFDocument.create();
+  for (let i = 0; i < files.length; i++) {
+    onProgress?.(i + 1, files.length);
+    let source: PDFDocument;
+    try {
+      source = await PDFDocument.load(await files[i].arrayBuffer());
+    } catch (err) {
+      throw new UnreadablePdfError(files[i].name, err);
+    }
+    const pages = await merged.copyPages(source, source.getPageIndices());
+    pages.forEach((page) => merged.addPage(page));
+  }
+  return merged.save();
+}
+
 export async function extractPdfPages(file: File, pageIndices: number[]): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
   const srcDoc = await PDFDocument.load(arrayBuffer);
