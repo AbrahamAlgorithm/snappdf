@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
 import { useDropzone, type Accept } from 'react-dropzone';
-import { ArrowRight, Check, Download, Eye } from 'lucide-react';
+import { ArrowRight, Check, Download, Eye, Info } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Button, FileRow, formatSize, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
-import { csvToExcel, jsonToCsv, jsonToExcel, pdfToDocx } from '@/lib/convUtils';
+import { csvToExcel, jsonToCsv, jsonToExcel } from '@/lib/convUtils';
 import { closePdf } from '@/lib/pdfjs';
+import { pdfToWord } from '@/lib/pdfToWord';
 import { getPdfMetadata, renderPageImage } from '@/lib/pdfUtils';
 import { getTool, type ToolId } from '@/lib/site';
+import { cn } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
 
 export type ConvertMode = Extract<ToolId, 'pdf-to-word' | 'csv-to-excel' | 'json-to-excel' | 'json-to-csv'>;
@@ -20,8 +22,18 @@ type ModeConfig = {
   noun: string;
   formats: string;
   action: string;
-  convert: (file: File) => Promise<Blob>;
+  // scanned: pdf pages that had no text, so went into word as pictures
+  convert: (file: File) => Promise<{ blob: Blob; scanned?: number[] }>;
 };
+
+const only = (convert: (file: File) => Promise<Blob>) => async (file: File) => ({ blob: await convert(file) });
+
+// "Page 4 is a scan" / "Pages 2, 3 and 5 are scans"
+function scannedNote(pages: number[], total: number) {
+  if (pages.length === total) return 'This PDF is a scan, so every page went in as a picture you can’t edit.';
+  const list = pages.length === 1 ? `Page ${pages[0]} is a scan` : `Pages ${pages.slice(0, -1).join(', ')} and ${pages.at(-1)} are scans`;
+  return `${list}, so ${pages.length === 1 ? 'it' : 'they'} went in as ${pages.length === 1 ? 'a picture' : 'pictures'} you can’t edit.`;
+}
 
 const MODES: Record<ConvertMode, ModeConfig> = {
   'pdf-to-word': {
@@ -33,7 +45,7 @@ const MODES: Record<ConvertMode, ModeConfig> = {
     noun: 'PDF',
     formats: 'PDF files',
     action: 'Convert to Word',
-    convert: pdfToDocx,
+    convert: pdfToWord,
   },
   'csv-to-excel': {
     accept: { 'text/csv': ['.csv'] },
@@ -44,7 +56,7 @@ const MODES: Record<ConvertMode, ModeConfig> = {
     noun: 'CSV file',
     formats: 'CSV files',
     action: 'Convert to Excel',
-    convert: csvToExcel,
+    convert: only(csvToExcel),
   },
   'json-to-excel': {
     accept: { 'application/json': ['.json'] },
@@ -55,7 +67,7 @@ const MODES: Record<ConvertMode, ModeConfig> = {
     noun: 'JSON file',
     formats: 'JSON files',
     action: 'Convert to Excel',
-    convert: jsonToExcel,
+    convert: only(jsonToExcel),
   },
   'json-to-csv': {
     accept: { 'application/json': ['.json'] },
@@ -66,7 +78,7 @@ const MODES: Record<ConvertMode, ModeConfig> = {
     noun: 'JSON file',
     formats: 'JSON files',
     action: 'Convert to CSV',
-    convert: jsonToCsv,
+    convert: only(jsonToCsv),
   },
 };
 
@@ -78,7 +90,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   const [pageCount, setPageCount] = useState(0);
   const [converting, setConverting] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [result, setResult] = useState<{ blob: Blob; name: string } | null>(null);
+  const [result, setResult] = useState<{ blob: Blob; name: string; scanned: number[] } | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   useReportWork(mode, !!file);
 
@@ -109,8 +121,8 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
     setConverting(true);
     setFailed(false);
     try {
-      const blob = await config.convert(file);
-      setResult({ blob, name: file.name.replace(config.input, '') + config.output });
+      const { blob, scanned = [] } = await config.convert(file);
+      setResult({ blob, name: file.name.replace(config.input, '') + config.output, scanned });
     } catch (err) {
       console.error('Conversion error', err);
       setFailed(true);
@@ -163,6 +175,12 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
               </span>
               <h2 className="mt-5 text-[22px] font-semibold tracking-[-0.02em]">Your file is ready</h2>
               <p className="mt-1.5 break-all text-[14px] text-ink/60">{result.name}</p>
+              {result.scanned.length > 0 && (
+                <p className="mx-auto mt-5 flex max-w-sm items-start gap-2.5 rounded-[16px] bg-subtle px-4 py-3 text-left text-[14px] leading-relaxed text-ink/70">
+                  <Info size={17} className="mt-0.5 shrink-0" />
+                  {scannedNote(result.scanned, pageCount || result.scanned.length)}
+                </p>
+              )}
               <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
                 <Button variant="primary" size="lg" onClick={() => saveAs(result.blob, result.name)}>
                   <Download size={18} />
@@ -198,6 +216,9 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
                   <p className="mt-0.5 text-[15px] font-medium">{config.to}</p>
                 </div>
               </div>
+              {mode === 'pdf-to-word' && (
+                <p className="mt-3 px-1 text-[13px] leading-relaxed text-ink/50">Looks just like your PDF, and you can edit every word.</p>
+              )}
               {failed && (
                 <p role="alert" className="mt-4 rounded-[16px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
                   We couldn’t convert this file. Check that it’s a valid {config.noun} and try again.

@@ -143,6 +143,47 @@ describe('detectPage', () => {
     expect(cornerError(found, inFrame)).toBeLessThan(0.02);
   });
 
+  // 200 random pages: any size, tilt and perspective, on any of the surfaces, lit evenly, from one side or with a hard shadow
+  it('finds at least 95% of 200 random photos', () => {
+    const rand = random(42);
+    const surfaces = [cloth, wood, lightTable, (): RGB => [30, 30, 34], (x: number): RGB => [60 + (x % 7), 120, 80]];
+    const lights = [() => 1, (x: number) => 0.6 + 0.5 * (x / 300), (x: number, y: number) => (y > 250 && x < 180 ? 0.7 : 1)];
+    let found = 0;
+    let tried = 0;
+    while (tried < 200) {
+      const width = 120 + rand() * 140;
+      const height = width * (1.25 + rand() * 0.2);
+      const cx = 150 + (rand() - 0.5) * 60;
+      const cy = 200 + (rand() - 0.5) * 60;
+      const turn = (rand() - 0.5) * 0.6;
+      const squeeze = (rand() - 0.5) * 0.35;
+      const page = [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx, sy]) => {
+        const x = ((sx * width) / 2) * (1 + squeeze * sy);
+        const y = (sy * height) / 2;
+        return { x: cx + x * Math.cos(turn) - y * Math.sin(turn), y: cy + x * Math.sin(turn) + y * Math.cos(turn) };
+      }) as Quad;
+      if (page.some((p) => p.x < 4 || p.y < 4 || p.x > 296 || p.y > 396)) continue;
+      tried++;
+      const scene = {
+        page,
+        background: surfaces[Math.floor(rand() * surfaces.length)],
+        light: lights[Math.floor(rand() * lights.length)],
+        ruled: rand() < 0.4,
+        box: rand() < 0.3,
+        seed: tried + 3,
+      };
+      if (cornerError(detectPage(photo(scene)), page) < 0.02) found++;
+    }
+
+    expect(found).toBeGreaterThanOrEqual(190);
+    // drawing 200 photos takes a few seconds, more on a slow ci machine
+  }, 60_000);
+
   it('finds nothing in a photo with no page', () => {
     const found = detectPage(photo({ page: q(-10, -10, -9, -10, -9, -9, -10, -9), background: wood }));
 

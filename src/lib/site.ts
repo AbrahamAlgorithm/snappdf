@@ -70,7 +70,7 @@ export const TOOLS: Tool[] = [
   {
     id: 'pdf-to-word',
     name: 'PDF to Word',
-    description: 'Get the text out of a PDF as an editable Word file.',
+    description: 'Turn a PDF into a Word file that looks just like it, with every word editable.',
     group: 'Convert',
     icon: FileType,
     color: '#7c3aed',

@@ -18,6 +18,11 @@ export function openPdf(source: File | Uint8Array) {
   return task.then((t) => t.promise);
 }
 
+// a copy of the pdf of its own, for a tool that needs it opened differently. destroy it when done
+export async function loadPdf(source: File, options: { fontExtraProperties?: boolean }) {
+  return getDocument({ ...options, data: new Uint8Array(await source.arrayBuffer()) });
+}
+
 export function closePdf(source: File | Uint8Array | null) {
   if (!source) return;
   openDocs.get(source)?.then(
