@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
-import { Eye, FilePlus2, Merge, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, FilePlus2, FileText, GripVertical, Merge, Trash2, X } from 'lucide-react';
 import {
   closestCenter,
   DndContext,
@@ -11,7 +11,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { saveAs } from 'file-saver';
 import {
@@ -28,65 +28,253 @@ import {
   Workbench,
 } from '@/components/toolkit';
 import { closePdf } from '@/lib/pdfjs';
-import { getPdfCover, mergePdfs, renderPageImage, UnreadablePdfError } from '@/lib/pdfUtils';
+import { getPdfInfo, mergePdfs, renderPageImage, UnreadablePdfError } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
 
-type PdfItem = { id: string; file: File; pageCount: number; cover?: string; pending?: boolean };
+type PdfItem = { id: string; file: File; pageCount: number; pending?: boolean; collapsed?: boolean };
+type Watch = (el: HTMLElement, key: string, file: File, page: number) => () => void;
 
 const tool = getTool('merge-pdf');
 const newId = () => Math.random().toString(36).substring(7);
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const thumbKey = (id: string, page: number) => `${id}:${page}`;
+const THUMB_WIDTH = 120;
 
-function PdfCard({ item, index, onRemove, onPreview }: { item: PdfItem; index: number; onRemove: () => void; onPreview: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+// page thumbnails get drawn as they come near the screen, a big pdf never renders all its pages up front
+function useThumbnails() {
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+
+  // built once, so watch and forget stay the same functions
+  const queue = useMemo(() => {
+    const urls = new Map<string, string>();
+    const waiting = new Map<string, { file: File; page: number }>();
+    const started = new Set<string>();
+    const nearScreen = new Set<string>();
+    const targets = new Map<Element, { key: string; file: File; page: number }>();
+    let running = 0;
+    let frame = 0;
+
+    // finished thumbnails land once per frame
+    const publish = () => {
+      if (!frame) frame = requestAnimationFrame(() => ((frame = 0), setThumbs(Object.fromEntries(urls))));
+    };
+
+    // two at a time, ones near the screen first, otherwise the latest asked for
+    const pump = () => {
+      while (running < 2 && waiting.size) {
+        const keys = [...waiting.keys()];
+        const key = keys.find((k) => nearScreen.has(k)) ?? keys[keys.length - 1];
+        const { file, page } = waiting.get(key)!;
+        waiting.delete(key);
+        started.add(key);
+        running++;
+        renderPageImage(file, page, THUMB_WIDTH, Infinity, 'image/jpeg')
+          .then(({ url }) => {
+            // the file was removed while this page was drawing
+            if (!started.has(key)) return URL.revokeObjectURL(url);
+            urls.set(key, url);
+            publish();
+          })
+          .catch((err) => console.warn('Thumbnail error', err))
+          .finally(() => {
+            running--;
+            pump();
+          });
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const target = targets.get(entry.target);
+          if (!target) continue;
+          const { key, file, page } = target;
+          if (!entry.isIntersecting) {
+            nearScreen.delete(key);
+            continue;
+          }
+          nearScreen.add(key);
+          if (!started.has(key) && !waiting.has(key)) waiting.set(key, { file, page });
+        }
+        pump();
+      },
+      { rootMargin: '400px 0px' },
+    );
+
+    const watch: Watch = (el, key, file, page) => {
+      targets.set(el, { key, file, page });
+      observer.observe(el);
+      return () => {
+        observer.unobserve(el);
+        targets.delete(el);
+        nearScreen.delete(key);
+      };
+    };
+
+    const forget = (id: string) => {
+      const mine = (key: string) => key.startsWith(`${id}:`);
+      [...waiting.keys()].filter(mine).forEach((key) => waiting.delete(key));
+      [...started].filter(mine).forEach((key) => started.delete(key));
+      for (const [key, url] of urls) {
+        if (!mine(key)) continue;
+        URL.revokeObjectURL(url);
+        urls.delete(key);
+      }
+      publish();
+    };
+
+    return { watch, forget };
+  }, []);
+
+  return { thumbs, ...queue };
+}
+
+const PageThumb = memo(function PageThumb({
+  id,
+  file,
+  page,
+  number,
+  url,
+  watch,
+  onOpen,
+  cover,
+}: {
+  id: string;
+  file: File;
+  page: number;
+  number: number;
+  url?: string;
+  watch: Watch;
+  onOpen: (index: number) => void;
+  cover?: boolean; // the small first page in a file's header
+}) {
+  // only pages still waiting for a thumbnail need watching
+  const ref = useCallback((el: HTMLButtonElement | null) => (el && !url ? watch(el, thumbKey(id, page), file, page) : undefined), [url, watch, id, file, page]);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined }}
+    <button
+      ref={ref}
+      type="button"
+      aria-label={`Preview page ${number}`}
+      title={`Preview page ${number}`}
+      onClick={() => onOpen(number - 1)}
       className={cn(
-        'relative flex flex-col rounded-[20px] bg-card p-2 transition-shadow',
-        isDragging ? 'shadow-2xl ring-2 ring-ink' : 'hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.3)]',
+        'relative block aspect-[3/4] w-full overflow-hidden bg-subtle transition-shadow hover:shadow-[0_6px_18px_-10px_rgba(0,0,0,0.35)]',
+        cover ? 'rounded-[6px]' : 'rounded-[12px]',
       )}
     >
-      <div
-        {...attributes}
-        {...listeners}
-        aria-label={`${index + 1}. ${item.file.name}${item.pending ? '' : `, ${plural(item.pageCount, 'page')}`}. Drag to reorder.`}
-        title={item.pending ? undefined : 'Double-click to preview'}
-        onDoubleClick={item.pending ? undefined : onPreview}
-        className="relative aspect-[4/5] cursor-grab overflow-hidden rounded-[14px] bg-subtle active:cursor-grabbing"
-      >
-        {item.pending ? (
-          <span className="absolute inset-0 grid place-items-center">
-            <Spinner className="size-5 text-ink/40" />
-          </span>
-        ) : (
-          <img src={item.cover} alt="" draggable={false} className="size-full select-none object-contain p-3 drop-shadow-[0_1px_3px_rgba(0,0,0,0.18)]" />
-        )}
-        <span className="absolute left-2 top-2 min-w-6 rounded-full bg-ink px-2 py-0.5 text-center text-[12px] font-medium tabular-nums text-canvas">
-          {index + 1}
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          draggable={false}
+          className={cn('size-full select-none object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]', cover ? 'p-0.5' : 'p-1.5')}
+        />
+      ) : (
+        <FileText size={cover ? 16 : 22} strokeWidth={1.3} className="absolute inset-0 m-auto text-ink/20" />
+      )}
+      {!cover && (
+        <span className="absolute bottom-1.5 left-1.5 min-w-5 rounded-full bg-ink px-1.5 py-px text-center text-[11px] font-medium tabular-nums text-canvas">
+          {number}
         </span>
-        {!item.pending && (
-          <span className="absolute bottom-2 right-2 rounded-full bg-canvas/95 px-2 py-0.5 text-[12px] tabular-nums text-ink/70 shadow-sm">
-            {plural(item.pageCount, 'page')}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-0.5 pl-1.5 pt-1.5">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-ink/65" title={item.file.name}>
-          {item.file.name}
-        </span>
-        <IconButton label="Preview" size="sm" disabled={item.pending} onClick={onPreview}>
-          <Eye size={16} />
+      )}
+    </button>
+  );
+});
+
+function PdfSection({
+  item,
+  index,
+  start,
+  thumbs,
+  watch,
+  onRemove,
+  onToggle,
+  onOpen,
+}: {
+  item: PdfItem;
+  index: number;
+  start: number; // where its first page lands in the merged pdf
+  thumbs: Record<string, string>;
+  watch: Watch;
+  onRemove: () => void;
+  onToggle: () => void;
+  onOpen: (index: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const { id, file, pageCount, pending, collapsed } = item;
+  const range = pageCount === 1 ? `page ${start + 1}` : `pages ${start + 1}–${start + pageCount}`;
+
+  return (
+    <section
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition, zIndex: isDragging ? 50 : undefined }}
+      className={cn('relative rounded-[20px] bg-card p-2 sm:p-3', isDragging && 'shadow-2xl ring-2 ring-ink')}
+    >
+      <div className="flex items-center gap-1">
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`${index + 1}. ${file.name}${pending ? '' : `, ${plural(pageCount, 'page')}`}. Drag to reorder.`}
+          title="Drag to reorder"
+          className="grid size-10 shrink-0 cursor-grab touch-none place-items-center rounded-full text-ink/40 transition-colors hover:bg-subtle hover:text-ink active:cursor-grabbing"
+        >
+          <GripVertical size={18} />
+        </button>
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-ink text-[12px] font-medium tabular-nums text-canvas">{index + 1}</span>
+        <div className="ml-2 w-9 shrink-0">
+          {pending ? (
+            <div className="grid aspect-[3/4] place-items-center rounded-[6px] bg-subtle">
+              <Spinner className="size-3.5 text-ink/40" />
+            </div>
+          ) : (
+            <PageThumb cover id={id} file={file} page={0} number={start + 1} url={thumbs[thumbKey(id, 0)]} watch={watch} onOpen={onOpen} />
+          )}
+        </div>
+        <div className="min-w-0 flex-1 pl-2">
+          <p className="truncate text-[15px] font-medium" title={file.name}>
+            {file.name}
+          </p>
+          <p className="text-[13px] leading-snug text-ink/55">
+            {pending ? (
+              'Opening…'
+            ) : (
+              <>
+                {plural(pageCount, 'page')} · {formatSize(file.size)}
+                {/* phones show the merged page numbers on the pages instead */}
+                <span className="hidden sm:inline"> · {range} of the merged PDF</span>
+              </>
+            )}
+          </p>
+        </div>
+        <IconButton label={collapsed ? 'Show pages' : 'Hide pages'} aria-expanded={!collapsed} disabled={pending} onClick={onToggle}>
+          <ChevronDown size={18} className={cn('transition-transform', !collapsed && 'rotate-180')} />
         </IconButton>
-        <IconButton label="Remove" size="sm" onClick={onRemove}>
-          <Trash2 size={16} />
+        <IconButton label="Remove" onClick={onRemove}>
+          <Trash2 size={17} />
         </IconButton>
       </div>
-    </div>
+
+      {!pending && !collapsed && (
+        <div className="mt-2 grid grid-cols-3 gap-2 px-1 pb-1 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6">
+          {Array.from({ length: pageCount }, (_, page) => (
+            <PageThumb
+              key={page}
+              id={id}
+              file={file}
+              page={page}
+              number={start + page + 1}
+              url={thumbs[thumbKey(id, page)]}
+              watch={watch}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -96,8 +284,8 @@ export default function MergePdf() {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
-  const [previewing, setPreviewing] = useState<PdfItem | null>(null);
-  const [page, setPage] = useState<number | null>(null);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const { thumbs, watch, forget } = useThumbnails();
   useReportWork(tool.id, items.length > 0);
 
   const sensors = useSensors(
@@ -106,14 +294,15 @@ export default function MergePdf() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // cards show up straight away in the order picked, then each pdf is opened one at a time
+  // files show up straight away in the order picked, then each one is opened in turn
   const reading = useRef(Promise.resolve());
   const alive = useRef(new Set<string>());
 
   const onDrop = (accepted: File[], rejections: FileRejection[] = []) => {
     setUnreadable(rejections.map((r) => r.file.name));
     setMergeError(null);
-    const added = accepted.map((file) => ({ id: newId(), file, pageCount: 0, pending: true }));
+    // collapsed to start with, so the list reads as a list of files you can reorder
+    const added = accepted.map((file) => ({ id: newId(), file, pageCount: 0, pending: true, collapsed: true }));
     added.forEach((item) => alive.current.add(item.id));
     setItems((prev) => [...prev, ...added]);
 
@@ -121,17 +310,17 @@ export default function MergePdf() {
       reading.current = reading.current.then(async () => {
         if (!alive.current.has(item.id)) return;
         try {
-          const { pageCount, cover, locked } = await getPdfCover(item.file);
+          const { pageCount, locked } = await getPdfInfo(item.file);
           if (locked) throw new Error('PDF is encrypted');
-          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, pageCount, cover, pending: false } : i)));
+          // stays open while it's in the list, the thumbnails and preview draw from it
+          if (!alive.current.has(item.id)) return closePdf(item.file);
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, pageCount, pending: false } : i)));
         } catch (err) {
           console.warn(`Could not use ${item.file.name}`, err);
+          closePdf(item.file);
           alive.current.delete(item.id);
           setItems((prev) => prev.filter((i) => i.id !== item.id));
           setUnreadable((prev) => [...prev, item.file.name]);
-        } finally {
-          // the card only needs the cover, the preview opens it again if asked
-          closePdf(item.file);
         }
       });
     }
@@ -144,37 +333,38 @@ export default function MergePdf() {
     setItems((prev) => arrayMove(prev, prev.findIndex((i) => i.id === active.id), prev.findIndex((i) => i.id === over.id)));
   };
 
-  const remove = (id: string) => {
-    alive.current.delete(id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
+  const remove = (item: PdfItem) => {
+    alive.current.delete(item.id);
+    forget(item.id);
+    closePdf(item.file);
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
     setMergeError(null);
   };
 
   const startOver = () => {
+    items.forEach((item) => {
+      forget(item.id);
+      closePdf(item.file);
+    });
     alive.current.clear();
     setItems([]);
     setUnreadable([]);
     setMergeError(null);
   };
 
-  const preview = (item: PdfItem) => {
-    setPreviewing(item);
-    setPage(0);
-  };
+  const toggle = (id: string) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, collapsed: !i.collapsed } : i)));
+  const anyOpen = items.some((i) => !i.pending && !i.collapsed);
+  const toggleAll = () => setItems((prev) => prev.map((i) => ({ ...i, collapsed: anyOpen })));
 
-  const closePreview = () => {
-    closePdf(previewing?.file ?? null);
-    setPreviewing(null);
-    setPage(null);
-  };
+  // every page of the merged pdf in order, so the preview can step through the whole result
+  const pages = useMemo(() => items.filter((i) => !i.pending).flatMap((item) => Array.from({ length: item.pageCount }, (_, page) => ({ item, page }))), [items]);
 
-  // sharp page renders for the full screen preview
   const renderPage = useCallback(
     async (index: number, width: number, height: number) => {
-      if (!previewing) throw new Error('No file open');
-      return (await renderPageImage(previewing.file, index, width, height)).url;
+      const { item, page } = pages[index];
+      return (await renderPageImage(item.file, page, width, height)).url;
     },
-    [previewing],
+    [pages],
   );
 
   const merge = async (fileName: string) => {
@@ -226,8 +416,9 @@ export default function MergePdf() {
   }
 
   const opening = items.filter((item) => item.pending).length;
-  const totalPages = items.reduce((sum, item) => sum + item.pageCount, 0);
   const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0);
+  // where each file's first page lands in the merged pdf
+  const starts = items.map((_, i) => items.slice(0, i).reduce((sum, item) => sum + item.pageCount, 0));
 
   return (
     <ToolShell tool={tool}>
@@ -267,7 +458,7 @@ export default function MergePdf() {
           >
             <dl className="mt-5 space-y-2.5 text-[14px]">
               <Row label="Files" value={items.length} />
-              <Row label="Total pages" value={opening ? '…' : totalPages} />
+              <Row label="Total pages" value={opening ? '…' : pages.length} />
               <Row label="Total size" value={formatSize(totalBytes)} />
             </dl>
             {items.length < 2 && <p className="mt-5 rounded-[14px] bg-subtle px-4 py-3 text-[13px] text-ink/60">Add at least one more PDF to merge.</p>}
@@ -285,7 +476,7 @@ export default function MergePdf() {
         <div className="flex flex-wrap items-end justify-between gap-3 px-1 pb-4 pt-1">
           <div>
             <h2 className="text-[20px] font-semibold tracking-[-0.02em]">{plural(items.length, 'PDF')}</h2>
-            <p className="mt-0.5 text-[14px] text-ink/55">Drag to change the order.</p>
+            <p className="mt-0.5 text-[14px] text-ink/55">Drag to reorder. Open a file to see all its pages.</p>
           </div>
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" onClick={startOver} disabled={!!progress}>
@@ -299,29 +490,39 @@ export default function MergePdf() {
         </div>
 
         {unreadableNotice}
-        {opening > 0 && (
-          <div role="status" className="mb-3 flex items-center gap-3 rounded-[20px] bg-card px-4 py-3 text-[14px]">
-            <Spinner className="size-4" />
-            Opening {plural(opening, 'PDF')}…
-          </div>
-        )}
+        <div className="-mt-1 mb-2 flex justify-end">
+          <Button variant="ghost" size="sm" onClick={toggleAll} disabled={!pages.length}>
+            {anyOpen ? <ChevronsDownUp size={16} /> : <ChevronsUpDown size={16} />}
+            {anyOpen ? 'Collapse all' : 'Expand all'}
+          </Button>
+        </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={items} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
               {items.map((item, index) => (
-                <PdfCard key={item.id} item={item} index={index} onRemove={() => remove(item.id)} onPreview={() => preview(item)} />
+                <PdfSection
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  start={starts[index]}
+                  thumbs={thumbs}
+                  watch={watch}
+                  onRemove={() => remove(item)}
+                  onToggle={() => toggle(item.id)}
+                  onOpen={setViewing}
+                />
               ))}
               <div
                 {...dropzone.getRootProps({
                   className: cn(
-                    'flex min-h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border-2 border-dashed text-ink/55 transition-colors',
+                    'flex h-24 cursor-pointer items-center justify-center gap-2 rounded-[20px] border-2 border-dashed text-ink/55 transition-colors',
                     dropzone.isDragActive ? 'border-ink bg-card text-ink' : 'border-line hover:border-ink/25 hover:text-ink',
                   ),
                 })}
               >
                 <input {...dropzone.getInputProps()} />
-                <FilePlus2 size={24} />
+                <FilePlus2 size={22} />
                 <span className="text-[14px] font-medium">Add PDFs</span>
               </div>
             </div>
@@ -330,11 +531,11 @@ export default function MergePdf() {
       </Workbench>
 
       <PageViewer
-        previews={previewing?.cover ? [previewing.cover] : []}
-        count={previewing?.pageCount ?? 0}
-        index={page}
-        onIndex={setPage}
-        onClose={closePreview}
+        previews={pages.map(({ item, page }) => thumbs[thumbKey(item.id, page)])}
+        count={pages.length}
+        index={viewing}
+        onIndex={setViewing}
+        onClose={() => setViewing(null)}
         renderPage={renderPage}
       />
 

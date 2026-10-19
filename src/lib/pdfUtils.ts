@@ -54,8 +54,14 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
   return { pageCount, previews };
 }
 
-// render a page as a sharp png that fills a width x height box (css px) on this screen
-export async function renderPageImage(source: File | Uint8Array, index: number, width: number, height = Infinity) {
+// render a page as a sharp image that fills a width x height box (css px) on this screen, jpeg for small thumbnails
+export async function renderPageImage(
+  source: File | Uint8Array,
+  index: number,
+  width: number,
+  height = Infinity,
+  type: 'image/png' | 'image/jpeg' = 'image/png',
+) {
   const pdf = await openPdf(source);
   const page = await pdf.getPage(index + 1);
   const base = page.getViewport({ scale: 1 });
@@ -70,31 +76,18 @@ export async function renderPageImage(source: File | Uint8Array, index: number, 
   if (!context) throw new Error('Could not get canvas context');
   await page.render({ canvas, canvasContext: context, viewport }).promise;
 
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.85));
   canvas.width = 0;
   canvas.height = 0;
   if (!blob) throw new Error('Could not render page');
   return { url: URL.createObjectURL(blob), width: viewport.width, height: viewport.height };
 }
 
-// what a merge card needs: page count, a small render of page 1, and whether it's locked
-export async function getPdfCover(file: File): Promise<{ pageCount: number; cover: string; locked: boolean }> {
+// what merge needs before showing a file: its page count, and whether it's locked
+export async function getPdfInfo(file: File): Promise<{ pageCount: number; locked: boolean }> {
   const pdf = await openPdf(file);
   // only encrypted pdfs have permissions, and pdf-lib can't copy pages out of those
-  const locked = (await pdf.getPermissions()) !== null;
-  const page = await pdf.getPage(1);
-  const width = 260 * Math.min(window.devicePixelRatio || 1, 2);
-  const viewport = page.getViewport({ scale: width / page.getViewport({ scale: 1 }).width });
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Could not get canvas context');
-  await page.render({ canvas, canvasContext: context, viewport }).promise;
-  const cover = canvas.toDataURL('image/jpeg', 0.85);
-  canvas.width = 0;
-  canvas.height = 0;
-  return { pageCount: pdf.numPages, cover, locked };
+  return { pageCount: pdf.numPages, locked: (await pdf.getPermissions()) !== null };
 }
 
 // says which file broke a merge
