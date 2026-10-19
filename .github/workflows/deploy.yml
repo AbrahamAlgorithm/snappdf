@@ -1,0 +1,66 @@
+name: Deploy
+
+# every push to main goes live once the checks pass. pull requests never deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one deploy at a time, a newer push waits instead of cancelling one halfway
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+# none of these are secrets. google only accepts logins from this repo's main branch
+env:
+  PROJECT_ID: my-portfolio-492519
+  REGION: us-west1
+  SERVICE: snappdf
+  IMAGE: us-west1-docker.pkg.dev/my-portfolio-492519/snappdf/snappdf
+  WIF_PROVIDER: projects/179103012566/locations/global/workloadIdentityPools/snappdf-github/providers/github
+  DEPLOYER: snappdf-deployer@my-portfolio-492519.iam.gserviceaccount.com
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Build and deploy to Cloud Run
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # lets the job get a short-lived github token that google trusts, no stored keys
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+
+      - name: Build and push the image
+        id: image
+        run: |
+          gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
+          docker build -t "$IMAGE:$GITHUB_SHA" .
+          docker push "$IMAGE:$GITHUB_SHA"
+          echo "ref=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE:$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+      # deploys by digest, so the exact image that was built is the one that runs
+      - name: Deploy
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --quiet \
+            --container nginx-container \
+            --image "$IMAGE_REF"

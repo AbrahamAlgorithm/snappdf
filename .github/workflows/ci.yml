@@ -1,0 +1,42 @@
+name: CI
+
+# runs on every pull request, and before every deploy (deploy.yml calls it).
+# no secrets or cloud access here, so pull requests from forks are safe to run
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Type check, build and audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      # no install scripts, so a package can't run code in CI
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run build
+      # only fail on vulnerabilities in code that actually ships to users
+      - run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Docker image builds
+    # deploys build the image anyway, so this only runs for pull requests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t snappdf:ci .

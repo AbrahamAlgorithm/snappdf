@@ -9,3 +9,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # keeps the pinned action commits in the workflows up to date
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
