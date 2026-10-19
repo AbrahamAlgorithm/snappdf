@@ -1,26 +1,27 @@
-import { getDocument, GlobalWorkerOptions, version, type PDFDocumentProxy } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, type PDFDocumentLoadingTask } from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// pdf.js worker from unpkg, same version as the package
-GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+// worker is served from our own domain, no third-party scripts
+GlobalWorkerOptions.workerSrc = workerUrl;
 
 // one open pdf per file while a tool uses it, so pages render without re-reading the file
-const openDocs = new Map<File | Uint8Array, Promise<PDFDocumentProxy>>();
+const openDocs = new Map<File | Uint8Array, Promise<PDFDocumentLoadingTask>>();
 
 export function openPdf(source: File | Uint8Array) {
-  let doc = openDocs.get(source);
-  if (!doc) {
+  let task = openDocs.get(source);
+  if (!task) {
     // pdf.js takes over the bytes it's given, so it gets a copy
     const data = source instanceof File ? source.arrayBuffer() : Promise.resolve(source.slice());
-    doc = data.then((bytes) => getDocument({ data: bytes }).promise);
-    openDocs.set(source, doc);
+    task = data.then((bytes) => getDocument({ data: bytes }));
+    openDocs.set(source, task);
   }
-  return doc;
+  return task.then((t) => t.promise);
 }
 
 export function closePdf(source: File | Uint8Array | null) {
   if (!source) return;
   openDocs.get(source)?.then(
-    (doc) => doc.destroy(),
+    (task) => task.destroy(),
     () => {},
   );
   openDocs.delete(source);
