@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   check:
+    # renaming this breaks the required check on main, it'd need updating in branch protection too
     name: Type check, build and audit
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -25,6 +26,7 @@ jobs:
       # no install scripts, so a package can't run code in CI
       - run: npm ci --ignore-scripts
       - run: npm run lint
+      - run: npm test
       - run: npm run build
       # only fail on vulnerabilities in code that actually ships to users
       - run: npm audit --omit=dev --audit-level=high
