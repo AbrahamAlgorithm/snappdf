@@ -36,12 +36,11 @@ import { useReportWork } from '@/lib/work';
 
 type ImageData = {
   id: string;
-  url: string;
+  url: string; // full quality, used for the pdf
+  thumb?: string; // small preview for the grid
   name: string;
-  type: string;
-  width: number;
-  height: number;
   size: number;
+  pending?: boolean; // still converting or making the preview
 };
 
 const tool = getTool('image-to-pdf');
@@ -56,15 +55,40 @@ const ACCEPT = {
 
 const newId = () => Math.random().toString(36).substring(7);
 
-function loadImage(file: File): Promise<ImageData> {
-  const url = URL.createObjectURL(file);
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve({ id: newId(), url, name: file.name, type: file.type, width: img.width, height: img.height, size: file.size });
-    img.onerror = () => resolve({ id: newId(), url, name: file.name, type: file.type || 'image/jpeg', width: 800, height: 600, size: file.size });
-    img.src = url;
-  });
+// previews are made a few at a time, so hundreds of photos never sit in memory at full size
+const BATCH = 4;
+const THUMB_WIDTH = 600;
+
+// small jpeg preview for a grid card, a 12mp photo per card would run a phone out of memory
+async function makeThumb(source: Blob | string): Promise<string | undefined> {
+  try {
+    let bitmap: ImageBitmap | HTMLImageElement;
+    if (typeof source === 'string') {
+      bitmap = new Image();
+      bitmap.src = source;
+      await bitmap.decode();
+    } else {
+      bitmap = await createImageBitmap(source, { resizeWidth: THUMB_WIDTH, resizeQuality: 'medium' });
+    }
+    const scale = Math.min(1, THUMB_WIDTH / bitmap.width);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if ('close' in bitmap) bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+    canvas.width = 0;
+    canvas.height = 0;
+    return blob ? URL.createObjectURL(blob) : undefined;
+  } catch {
+    return undefined;
+  }
 }
+
+const revoke = (img: ImageData) => {
+  if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+  if (img.thumb) URL.revokeObjectURL(img.thumb);
+};
 
 function ImageCard({
   image,
@@ -96,7 +120,20 @@ function ImageCard({
         aria-label={`Page ${index + 1}: ${image.name}. Drag to reorder.`}
         className="relative aspect-[4/5] cursor-grab overflow-hidden rounded-[14px] bg-subtle active:cursor-grabbing"
       >
-        <img src={image.url} alt="" draggable={false} className="size-full select-none object-contain p-2" />
+        {image.pending ? (
+          <span className="absolute inset-0 grid place-items-center">
+            <Spinner className="size-5 text-ink/40" />
+          </span>
+        ) : (
+          <img
+            src={image.thumb ?? image.url}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+            className="size-full select-none object-contain p-2"
+          />
+        )}
         <span className="absolute left-2 top-2 min-w-6 rounded-full bg-ink px-2 py-0.5 text-center text-[12px] font-medium tabular-nums text-canvas">
           {index + 1}
         </span>
@@ -105,10 +142,10 @@ function ImageCard({
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink/65" title={image.name}>
           {image.name}
         </span>
-        <IconButton label="Rotate" size="sm" onClick={onRotate}>
+        <IconButton label="Rotate" size="sm" disabled={image.pending} onClick={onRotate}>
           <RotateCw size={16} />
         </IconButton>
-        <IconButton label="Crop" size="sm" onClick={onCrop}>
+        <IconButton label="Crop" size="sm" disabled={image.pending} onClick={onCrop}>
           <Crop size={16} />
         </IconButton>
         <IconButton label="Remove" size="sm" onClick={onRemove}>
@@ -146,15 +183,22 @@ export default function ImageToPdf() {
     const files = [...accepted, ...lookLikeImages];
     if (files.length === 0) return;
 
-    setBusy(files.some(isHeicFile) ? 'Converting HEIC photos…' : 'Adding images…');
+    // cards show up straight away, heic conversion and previews fill in a few at a time
+    const queue = files.map((file) => ({ id: newId(), file }));
+    setImages((prev) => [...prev, ...queue.map(({ id, file }) => ({ id, url: '', name: file.name, size: file.size, pending: true }))]);
+    const label = files.some(isHeicFile) ? 'Converting photos' : 'Adding images';
+    setBusy(`${label}… 0 of ${files.length}`);
     try {
-      const processed: File[] = [];
-      for (let i = 0; i < files.length; i++) {
-        if (isHeicFile(files[i])) setBusy(`Converting HEIC photo ${i + 1} of ${files.length}…`);
-        processed.push(await processFileForImageUpload(files[i]));
+      for (let i = 0; i < queue.length; i += BATCH) {
+        const ready = await Promise.all(
+          queue.slice(i, i + BATCH).map(async ({ id, file }) => {
+            const converted = await processFileForImageUpload(file);
+            return { id, url: URL.createObjectURL(converted), thumb: await makeThumb(converted), size: converted.size };
+          }),
+        );
+        setImages((prev) => prev.map((img) => ({ ...img, ...ready.find((r) => r.id === img.id), pending: img.pending && !ready.some((r) => r.id === img.id) })));
+        setBusy(`${label}… ${Math.min(i + BATCH, files.length)} of ${files.length}`);
       }
-      const added = await Promise.all(processed.map(loadImage));
-      setImages((prev) => [...prev, ...added]);
     } catch (err) {
       console.error('Error processing dropped images', err);
     } finally {
@@ -169,14 +213,16 @@ export default function ImageToPdf() {
     if (!img) return;
     try {
       const url = await rotateImage(await imageToCanvas(img.url), 90);
-      setImages((prev) => prev.map((i) => (i.id === id ? { ...i, url } : i)));
+      const thumb = await makeThumb(url);
+      if (img.thumb) URL.revokeObjectURL(img.thumb);
+      setImages((prev) => prev.map((i) => (i.id === id ? { ...i, url, thumb } : i)));
     } catch (err) {
       console.error('Rotate error', err);
     }
   };
 
   const startOver = () => {
-    images.forEach((img) => img.url.startsWith('blob:') && URL.revokeObjectURL(img.url));
+    images.forEach(revoke);
     setImages([]);
   };
 
@@ -195,7 +241,9 @@ export default function ImageToPdf() {
     if (!cropping || !croppedAreaPixels) return;
     try {
       const url = await cropImage(cropping.url, croppedAreaPixels);
-      setImages((prev) => prev.map((i) => (i.id === cropping.id ? { ...i, url } : i)));
+      const thumb = await makeThumb(url);
+      if (cropping.thumb) URL.revokeObjectURL(cropping.thumb);
+      setImages((prev) => prev.map((i) => (i.id === cropping.id ? { ...i, url, thumb } : i)));
       setCropping(null);
     } catch (err) {
       console.error('Crop error', err);
@@ -326,7 +374,10 @@ export default function ImageToPdf() {
                   key={image.id}
                   image={image}
                   index={index}
-                  onRemove={() => setImages((prev) => prev.filter((i) => i.id !== image.id))}
+                  onRemove={() => {
+                    revoke(image);
+                    setImages((prev) => prev.filter((i) => i.id !== image.id));
+                  }}
                   onCrop={() => startCrop(image)}
                   onRotate={() => rotate(image.id)}
                 />
