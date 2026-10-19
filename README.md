@@ -8,7 +8,7 @@ snappdf is a free, open-source PDF toolkit that runs entirely in your browser. E
 
 ## Links
 
-- **Live app**: [snappdf-179103012566.us-west1.run.app](https://snappdf-179103012566.us-west1.run.app)
+- **Live app**: [snappdf-179103012566.us-west1.run.app](https://snappdf.abrahamalgorithm.tech)
 - **Report a bug or request a feature**: [Open an issue](https://github.com/AbrahamAlgorithm/snappdf/issues)
 
 ## Features
