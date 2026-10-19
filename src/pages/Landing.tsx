@@ -347,12 +347,16 @@ const FAQS: { q: string; a: ReactNode }[] = [
   { q: 'Is snappdf really free?', a: 'Yes. No trials, no watermarks, no premium tier. It’s open source, so it stays that way.' },
   { q: 'Are my files uploaded anywhere?', a: 'No. Every tool runs inside your browser, so your files never leave your device.' },
   {
+    q: 'Does it work offline?',
+    a: 'Yes. After your first visit snappdf keeps itself on your device, so it opens and works with no internet. Try it: turn on airplane mode and keep going. You can also add it to your home screen or install it from your browser, like an app.',
+  },
+  {
     q: 'What happens to my files when I’m done?',
     a: 'They stay in your browser tab while you work, even if you switch between tools. Refresh or close the tab and they’re gone, so download your result before you leave.',
   },
   {
     q: 'Which file types are supported?',
-    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also split and sign any PDF.',
+    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also merge, split and sign any PDF.',
   },
   {
     q: 'Can I contribute?',
