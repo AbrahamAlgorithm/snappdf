@@ -5,10 +5,27 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      # react and react-dom have to move together
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      # small updates come as one pull request a week, majors stay separate so they get a proper look
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # matches the node version the site builds with (22), move it on purpose
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # only move node to a new LTS on purpose, not to every release
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+
   # keeps the pinned action commits in the workflows up to date
   - package-ecosystem: github-actions
     directory: /
