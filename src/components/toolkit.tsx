@@ -443,6 +443,18 @@ export function PageViewer({
 
   // a click anywhere but the page or a button closes the preview, including the empty space around the page
   const pressedOutside = useRef(false);
+  // swipe left or right on a phone to change page, like a photo gallery
+  const swipe = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const onSwipeEnd = (e: { clientX: number; clientY: number }) => {
+    const start = swipe.current;
+    if (!start || index === null) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    start.moved = true;
+    if (dx < 0 && index < count - 1) onIndex(index + 1);
+    if (dx > 0 && index > 0) onIndex(index - 1);
+  };
   const isOutside = (e: { target: EventTarget; clientX: number; clientY: number }) => {
     const el = e.target as Element;
     if (el.closest('button')) return false;
@@ -475,12 +487,18 @@ export function PageViewer({
           role="dialog"
           aria-modal="true"
           aria-label={`Page ${index + 1} of ${count}`}
-          onPointerDown={(e) => (pressedOutside.current = isOutside(e))}
-          onClick={(e) => pressedOutside.current && isOutside(e) && onClose()}
-          className="fixed inset-0 z-[100] flex flex-col bg-[#18181b] text-white"
+          onPointerDown={(e) => {
+            pressedOutside.current = isOutside(e);
+            swipe.current = { x: e.clientX, y: e.clientY, moved: false };
+          }}
+          onPointerUp={onSwipeEnd}
+          // a swipe isn't a tap, so it never closes the preview
+          onClick={(e) => !swipe.current?.moved && pressedOutside.current && isOutside(e) && onClose()}
+          // frosted glass: the page behind stays visible, just blurred
+          className="fixed inset-0 z-[100] flex touch-pan-y touch-pinch-zoom flex-col bg-canvas/70 text-ink backdrop-blur-2xl backdrop-saturate-150"
         >
           <div className="flex h-16 shrink-0 items-center gap-3 px-3 sm:px-5">
-            <IconButton label="Close" onClick={onClose} className="text-white/80 hover:bg-white/10 hover:text-white">
+            <IconButton label="Close" onClick={onClose} className="bg-canvas/70 text-ink shadow-sm hover:bg-canvas">
               <X size={20} />
             </IconButton>
             <span className="text-[15px] font-medium tabular-nums">
@@ -490,7 +508,7 @@ export function PageViewer({
               <Button
                 variant={selected ? 'primary' : 'outline'}
                 onClick={onToggle}
-                className={cn('ml-auto', selected ? 'bg-white text-black hover:bg-white/85' : 'border-white/25 bg-transparent text-white hover:bg-white/10')}
+                className={cn('ml-auto', !selected && 'bg-canvas/80')}
               >
                 {selected ? <Check size={16} /> : <Plus size={16} />}
                 {selected ? 'Selected' : 'Select page'}
@@ -502,7 +520,7 @@ export function PageViewer({
               label="Previous page"
               disabled={index === 0}
               onClick={() => onIndex(index - 1)}
-              className="absolute left-2 bg-white/10 text-white hover:bg-white/20 hover:text-white disabled:pointer-events-auto sm:left-5"
+              className="absolute left-2 bg-canvas/85 text-ink shadow-md hover:bg-canvas hover:text-ink disabled:pointer-events-auto sm:left-5"
             >
               <ChevronLeft size={22} />
             </IconButton>
@@ -515,15 +533,15 @@ export function PageViewer({
                 className="size-full object-contain drop-shadow-2xl"
               />
             ) : (
-              <div data-page className="flex aspect-[3/4] h-full max-h-[70vh] items-center justify-center rounded-sm bg-white/5">
-                <Spinner className="size-8 text-white/60" />
+              <div data-page className="flex aspect-[3/4] h-full max-h-[70vh] items-center justify-center rounded-sm bg-canvas/70 shadow-2xl">
+                <Spinner className="size-8 text-ink/40" />
               </div>
             )}
             <IconButton
               label="Next page"
               disabled={index === count - 1}
               onClick={() => onIndex(index + 1)}
-              className="absolute right-2 bg-white/10 text-white hover:bg-white/20 hover:text-white disabled:pointer-events-auto sm:right-5"
+              className="absolute right-2 bg-canvas/85 text-ink shadow-md hover:bg-canvas hover:text-ink disabled:pointer-events-auto sm:right-5"
             >
               <ChevronRight size={22} />
             </IconButton>

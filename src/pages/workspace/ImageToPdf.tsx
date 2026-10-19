@@ -20,6 +20,7 @@ import {
   formatSize,
   IconButton,
   NameDialog,
+  PageViewer,
   Panel,
   Row,
   Spinner,
@@ -223,6 +224,7 @@ const ImageCard = memo(function ImageCard({
   onRemove,
   onCrop,
   onRotate,
+  onOpen,
   watch,
 }: {
   image: ImageData;
@@ -230,6 +232,7 @@ const ImageCard = memo(function ImageCard({
   onRemove: (id: string) => void;
   onCrop: (id: string) => void;
   onRotate: (id: string) => void;
+  onOpen: (index: number) => void;
   watch: (el: HTMLElement | null, id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
@@ -255,6 +258,9 @@ const ImageCard = memo(function ImageCard({
         {...attributes}
         {...listeners}
         aria-label={`Page ${index + 1}: ${image.name}. Drag to reorder.`}
+        title={pending ? undefined : 'Click to preview, drag to reorder'}
+        // a tap opens the preview, dragging only starts once the pointer moves
+        onClick={() => !pending && onOpen(index)}
         className="relative aspect-[4/5] cursor-grab overflow-hidden rounded-[14px] bg-subtle active:cursor-grabbing"
       >
         {image.pending ? (
@@ -300,12 +306,14 @@ export default function ImageToPdf() {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
 
+  const [viewing, setViewing] = useState<number | null>(null);
   const [cropping, setCropping] = useState<{ id: string; src: string; photo: Blob; corners: Quad | null } | null>(null);
   useReportWork(tool.id, images.length > 0);
   const previews = usePreviewQueue(setImages, setBusy);
 
+  // a click or tap opens the preview, so a drag only starts after the pointer moves a little
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
@@ -548,6 +556,7 @@ export default function ImageToPdf() {
                   onRemove={removeImage}
                   onCrop={startCrop}
                   onRotate={rotate}
+                  onOpen={setViewing}
                   watch={previews.watch}
                 />
               ))}
@@ -579,6 +588,14 @@ export default function ImageToPdf() {
         </DndContext>
         {cameraField}
       </Workbench>
+
+      <PageViewer
+        previews={images.map((img) => img.url)}
+        count={images.length}
+        index={viewing !== null && viewing < images.length ? viewing : null}
+        onIndex={setViewing}
+        onClose={() => setViewing(null)}
+      />
 
       <CornerEditor
         src={cropping?.src ?? null}
