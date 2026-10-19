@@ -13,12 +13,14 @@ snappdf is a free, open-source PDF toolkit that runs entirely in your browser. E
 
 ## Features
 
-- **Image to PDF**: Turn photos, screenshots and scans (including iPhone HEIC) into one PDF. Reorder, rotate and crop.
+- **Image to PDF**: Turn photos, screenshots and scans (including iPhone HEIC) into one PDF. Reorder, rotate and crop. On a phone, take photos with the camera straight into the PDF.
+- **Merge PDF**: Combine several PDFs into one, in the order you choose.
 - **Split PDF**: Pick the pages you need and save them as a new PDF.
 - **Sign PDF**: Draw or upload your signature and place it on any page.
 - **Text to PDF**: Type, paste or open a text file and save it as a PDF.
 - **Converters**: PDF to Word, CSV or JSON to Excel, and JSON to CSV.
 - **Private by design**: Everything runs on your device. Nothing is uploaded.
+- **Works offline**: After the first visit it opens and works with no internet, and you can install it like an app.
 
 ## Run it locally
 
@@ -33,6 +35,8 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+Run the tests with `npm test`. Offline mode is only switched on in production builds, so try it with `npm run build && npm run preview`.
+
 ## Contribution
 
 Contributions are welcome. To contribute:
@@ -42,7 +46,7 @@ Contributions are welcome. To contribute:
 3. Commit your changes.
 4. Push the branch and open a Pull Request.
 
-Every pull request runs a type check, build and security audit before it can be merged.
+Every pull request runs a type check, tests, build and security audit before it can be merged.
 
 ## Security
 
