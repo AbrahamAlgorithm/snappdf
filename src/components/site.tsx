@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Logo, LogoMark } from '@/components/brand';
 import { GitHubStarButton } from '@/components/GitHubStarButton';
+import { InstallControl } from '@/components/InstallControl';
 import { APP_HREF, toolHref } from '@/lib/router';
 import { GITHUB_URL } from '@/lib/site';
 import { cn } from '@/lib/utils';
@@ -63,6 +64,7 @@ export function SiteNav() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <InstallControl className="hidden sm:flex" />
             <a href={APP_HREF} className="hidden h-11 items-center px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink sm:flex">
               Get started
             </a>
@@ -104,6 +106,7 @@ export function SiteNav() {
                 </a>
               ))}
               <GitHubStarButton label="Star on GitHub" className="mt-6 h-12 w-full justify-center" />
+              <InstallControl className="mt-4 h-12 w-full justify-center rounded-xl bg-subtle" />
             </motion.nav>
           </motion.div>
         )}
