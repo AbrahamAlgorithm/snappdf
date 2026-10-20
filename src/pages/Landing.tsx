@@ -251,6 +251,10 @@ const FAQS: { q: string; a: ReactNode }[] = [
     a: 'Yes. After your first visit snappdf keeps itself on your device, so it opens and works with no internet. Try it: turn on airplane mode and keep going. You can also add it to your home screen or install it from your browser, like an app.',
   },
   {
+    q: 'Can I install it, like an app?',
+    a: 'Yes. On Android, open the ⋮ menu in Chrome and tap Install app (or Add to Home screen). On iPhone, tap the Share button in Safari, then Add to Home Screen. Either way you get a real icon that opens full-screen and keeps working offline.',
+  },
+  {
     q: 'What happens to my files when I’m done?',
     a: 'They stay in your browser tab while you work, even if you switch between tools. Refresh or close the tab and they’re gone, so download your result before you leave.',
   },
