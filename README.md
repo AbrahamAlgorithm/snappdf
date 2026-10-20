@@ -32,12 +32,7 @@ snappdf is a free, open-source PDF toolkit that runs entirely in your browser. I
 
 ## Contribution
 
-We welcome contributions to improve snappdf. To contribute:
-
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/NewFeature`).
-3. Commit your changes.
-4. Push to the branch and open a Pull Request.
+We welcome contributions to improve snappdf. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style and the PR process.
 
 ## Feedback
 
