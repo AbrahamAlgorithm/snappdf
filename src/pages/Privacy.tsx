@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Ban, ShieldCheck } from 'lucide-react';
 import { GitHubMark } from '@/components/brand';
-import { SitePage, usePageTitle } from '@/components/site';
+import { SitePage } from '@/components/site';
 import { GITHUB_URL } from '@/lib/site';
 
 const UPDATED = '19 October 2026';
@@ -24,8 +24,6 @@ const PROMISES = [
 ];
 
 export default function Privacy() {
-  usePageTitle('Privacy policy · snappdf');
-
   return (
     <SitePage>
       <article className="mx-auto max-w-2xl px-4 pb-32 pt-12 sm:px-6 sm:pt-20">

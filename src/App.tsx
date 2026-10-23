@@ -2,6 +2,7 @@ import { Activity, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { MotionConfig } from 'motion/react';
 import { LogoMark } from '@/components/brand';
 import { useRoute } from '@/lib/router';
+import { pageFor, SITE_URL } from '@/lib/seo';
 import type { ToolId } from '@/lib/site';
 import Landing from '@/pages/Landing';
 import NotFound from '@/pages/NotFound';
@@ -38,6 +39,14 @@ export default function App() {
     }
     previousPage.current = page;
   }, [page]);
+
+  // the build writes these for the first page, keep them right as people move around
+  useEffect(() => {
+    const meta = pageFor(route);
+    document.title = meta.title;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description);
+    if (!meta.noindex) document.querySelector('link[rel="canonical"]')?.setAttribute('href', SITE_URL + meta.path);
+  }, [route]);
 
   return (
     <MotionConfig reducedMotion="user">

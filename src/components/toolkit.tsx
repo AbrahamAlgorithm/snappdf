@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEv
 import { AnimatePresence, motion } from 'motion/react';
 import type { DropzoneState } from 'react-dropzone';
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Upload, X } from 'lucide-react';
-import { APP_HREF } from '@/lib/router';
-import type { Tool } from '@/lib/site';
+import { APP_HREF, toolHref } from '@/lib/router';
+import { TOOL_GUIDES } from '@/lib/seo';
+import { TOOLS, type Tool } from '@/lib/site';
 import { cn } from '@/lib/utils';
 
 // shared ui for the tool pages
@@ -412,6 +413,66 @@ export function UploadCard({
         )}
       </div>
       <PrivacyNote />
+      <ToolGuide tool={tool} className="mt-20 sm:mt-28" />
+    </div>
+  );
+}
+
+// how to use the tool, common questions and the other tools. the build writes the same words into the page's html
+export function ToolGuide({ tool, className }: { tool: Tool; className?: string }) {
+  const guide = TOOL_GUIDES[tool.id];
+  const heading = 'text-[22px] font-semibold tracking-[-0.03em] sm:text-[26px]';
+  return (
+    <div className={cn('text-left', className)}>
+      <section aria-labelledby={`${tool.id}-how`}>
+        <h2 id={`${tool.id}-how`} className={heading}>
+          {guide.howTo}
+        </h2>
+        <ol className="mt-6 space-y-5">
+          {guide.steps.map((step, i) => (
+            <li key={step.title} className="flex gap-4">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-card text-[14px] font-semibold tabular-nums">{i + 1}</span>
+              <div className="pt-1">
+                <h3 className="text-[16px] font-semibold tracking-[-0.01em]">{step.title}</h3>
+                <p className="mt-1 text-[15px] leading-relaxed text-ink/60">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section aria-labelledby={`${tool.id}-faq`} className="mt-16">
+        <h2 id={`${tool.id}-faq`} className={heading}>
+          Common questions
+        </h2>
+        <div className="mt-4 divide-y divide-line border-y border-line">
+          {guide.faqs.map((faq) => (
+            <div key={faq.q} className="py-5">
+              <h3 className="text-[16px] font-semibold tracking-[-0.01em]">{faq.q}</h3>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-ink/60">{faq.a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <nav aria-labelledby={`${tool.id}-more`} className="mt-16">
+        <h2 id={`${tool.id}-more`} className={heading}>
+          More free tools
+        </h2>
+        <ul className="mt-5 grid gap-2.5 sm:grid-cols-2">
+          {TOOLS.filter((t) => t.id !== tool.id).map((t) => (
+            <li key={t.id}>
+              <a
+                href={toolHref(t.id)}
+                className="flex items-center gap-3 rounded-[16px] border border-transparent bg-card p-3 text-[15px] font-medium transition-[border-color,box-shadow] hover:border-ink/15 hover:shadow-[0_10px_30px_-14px_rgba(0,0,0,0.22)]"
+              >
+                <ToolIcon tool={t} size="sm" />
+                {t.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 }

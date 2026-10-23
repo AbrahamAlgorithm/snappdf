@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type DragEvent } from 'react';
 import { Download, FileUp } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { Button, NameDialog, Panel, Row, Spinner, ToolShell, Workbench } from '@/components/toolkit';
+import { Button, NameDialog, Panel, Row, Spinner, ToolGuide, ToolShell, Workbench } from '@/components/toolkit';
 import { hasUnsupportedText, textToPdf } from '@/lib/convUtils';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
@@ -172,6 +172,7 @@ export default function TextToPdf() {
           )}
         </div>
       </Workbench>
+      {!hasText && <ToolGuide tool={tool} className="mx-auto max-w-2xl px-4 pb-28 lg:mt-16 lg:pb-16" />}
 
       <NameDialog
         suggested={suggestedName}

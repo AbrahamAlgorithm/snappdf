@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Bug, CircleCheck, CircleHelp, Lightbulb, Send } from 'lucide-react';
-import { SitePage, usePageTitle } from '@/components/site';
+import { SitePage } from '@/components/site';
 import { Button, Select, Spinner, ToolIcon, type SelectOption } from '@/components/toolkit';
 import { GITHUB_URL, TOOLS } from '@/lib/site';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,6 @@ function startingValues() {
 type Status = { state: 'idle' } | { state: 'sending' } | { state: 'sent' } | { state: 'failed'; message: string };
 
 export default function Report() {
-  usePageTitle('Report a bug or request a feature · snappdf');
   const [start] = useState(startingValues);
   const [kind, setKind] = useState<Kind>(start.kind);
   const [tool, setTool] = useState(start.tool);

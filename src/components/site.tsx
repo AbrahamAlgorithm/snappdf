@@ -4,7 +4,7 @@ import { Logo, LogoMark } from '@/components/brand';
 import { GitHubStarButton } from '@/components/GitHubStarButton';
 import { InstallControl } from '@/components/InstallControl';
 import { APP_HREF, toolHref } from '@/lib/router';
-import { GITHUB_URL } from '@/lib/site';
+import { GITHUB_URL, TOOL_GROUPS, TOOLS } from '@/lib/site';
 import { cn } from '@/lib/utils';
 
 // the nav, footer and page frame shared by the landing page, privacy, report and 404 pages
@@ -136,27 +136,25 @@ function FooterColumn({ title, links }: { title: string; links: { label: string;
 export function SiteFooter() {
   return (
     <footer className="theme-dark relative overflow-hidden bg-canvas pt-20">
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
-        <div>
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-12 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
+        <div className="col-span-2 md:col-span-4 lg:col-span-1">
           <Logo />
           <p className="mt-5 max-w-xs text-[15px] leading-relaxed text-ink/55">
             Free, open-source PDF tools that run in your browser. For everyone who’s ever hit a PDF paywall.
           </p>
         </div>
-        <FooterColumn
-          title="Tools"
-          links={[
-            { label: 'All tools', href: APP_HREF },
-            { label: 'Image to PDF', href: toolHref('image-to-pdf') },
-            { label: 'Merge PDF', href: toolHref('merge-pdf') },
-            { label: 'Split PDF', href: toolHref('pdf-splitter') },
-            { label: 'Sign PDF', href: toolHref('sign-pdf') },
-            { label: 'PDF to Word', href: toolHref('pdf-to-word') },
-          ]}
-        />
+        {/* every tool, so search engines find them all from any page */}
+        {TOOL_GROUPS.map((group) => (
+          <FooterColumn
+            key={group}
+            title={group}
+            links={TOOLS.filter((tool) => tool.group === group).map((tool) => ({ label: tool.name, href: toolHref(tool.id) }))}
+          />
+        ))}
         <FooterColumn
           title="Product"
           links={[
+            { label: 'All tools', href: APP_HREF },
             { label: 'Privacy', href: '/privacy' },
             { label: 'FAQ', href: '/#faq' },
           ]}
@@ -185,17 +183,6 @@ export function SiteFooter() {
       </div>
     </footer>
   );
-}
-
-// the tab title while a page is open
-export function usePageTitle(title: string) {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = title;
-    return () => {
-      document.title = previous;
-    };
-  }, [title]);
 }
 
 // a plain page with the site nav and footer, laid out like the landing page

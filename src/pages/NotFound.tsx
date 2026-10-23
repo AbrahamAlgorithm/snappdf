@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Pointer } from 'lucide-react';
-import { SitePage, usePageTitle } from '@/components/site';
+import { SitePage } from '@/components/site';
 import { APP_HREF } from '@/lib/router';
 
 // inspired by "Nosy 404" on dribbble: a lost page walks on, and the ground is a slowly turning wheel of 404s.
@@ -87,8 +87,6 @@ function Fist({ flip }: { flip?: boolean }) {
 }
 
 export default function NotFound() {
-  usePageTitle('Page not found · snappdf');
-
   return (
     <SitePage>
       {/* no padding at the bottom, and clipped only there: the wheel of 404s comes out of the footer and goes back into it */}
