@@ -67,7 +67,8 @@
     overscroll-behavior-y: none;
   }
 
-  html {
+  /* landing page section links only, in the tools it turns the browser's keep-the-cursor-in-view scroll into a long glide */
+  html:has(main.lp) {
     scroll-behavior: smooth;
   }
 

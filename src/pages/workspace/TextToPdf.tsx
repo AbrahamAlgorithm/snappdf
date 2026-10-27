@@ -34,8 +34,11 @@ export default function TextToPdf() {
   useLayoutEffect(() => {
     const field = fieldRef.current;
     if (!field) return;
+    // measuring shrinks the page for a moment, which knocks the scroll away from where people are typing
+    const top = window.scrollY;
     field.style.height = 'auto';
     field.style.height = `${field.scrollHeight}px`;
+    window.scrollTo({ top, behavior: 'instant' });
   }, [text]);
 
   const openFile = async (file?: File) => {
