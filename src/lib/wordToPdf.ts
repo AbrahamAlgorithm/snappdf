@@ -230,10 +230,14 @@ function vmlShapes(dom: Document) {
     const type = types.get(shape.getAttribute('type')?.replace(/^#/, '') ?? '');
     const pick = (name: string) => shape.getAttribute(name) ?? type?.getAttribute(name) ?? null;
     const picture = shape.getElementsByTagNameNS(V, 'imagedata').length > 0;
-    // word moves the text out of the way of a shape it wraps around. docx-preview can't, so the text goes over it
+    const fill =
+      picture || shape.localName === 'line' || isOff(pick('filled')) || isOff(child(shape, 'fill')?.getAttribute('on')) ? 'none' : vmlColor(pick('fillcolor'), '#ffffff');
+    // word moves the text out of the way of a shape it wraps around. docx-preview can't, so a picture or a filled shape
+    // goes under the text rather than hide it. see-through ones keep their place among the other shapes
     const wrap = [...shape.children].find((c) => c.localName === 'wrap' && c.namespaceURI === W10)?.getAttribute('type');
     const style = shape.getAttribute('style') ?? '';
-    if (wrap && wrap !== 'none' && !/z-index:\s*-/i.test(style)) shape.setAttribute('style', `${style.replace(/z-index:[^;]*/gi, '')};z-index:-1`);
+    if (wrap && wrap !== 'none' && (picture || fill !== 'none') && !/z-index:\s*-/i.test(style))
+      shape.setAttribute('style', `${style.replace(/z-index:[^;]*/gi, '')};z-index:-1`);
     let stroke = child(shape, 'stroke');
     // pictures and equations have no outline unless one's asked for
     if (isOff(pick('stroked')) || isOff(stroke?.getAttribute('on')) || (picture && !shape.hasAttribute('stroked') && !shape.hasAttribute('strokecolor'))) {
@@ -245,7 +249,6 @@ function vmlShapes(dom: Document) {
       stroke.setAttribute('weight', stroke.getAttribute('weight') || pick('strokeweight') || '0.75pt');
     }
     if (picture || shape.localName === 'line') continue;
-    const fill = isOff(pick('filled')) || isOff(child(shape, 'fill')?.getAttribute('on')) ? 'none' : vmlColor(pick('fillcolor'), '#ffffff');
 
     const box = child(shape, 'textbox');
     if (!box) {
@@ -282,6 +285,51 @@ function countUnsupported(dom: Document, found: Unsupported) {
 }
 
 export type Unsupported = { charts: number; shapes: number };
+
+// word's symbol font puts greek letters and maths signs at letter codes, 0x20 to 0x7e and 0xa0 to 0xfe, or at f020 to
+// f0fe. these are the same characters in unicode, which the stand-in fonts have
+const SYMBOL_LOW = [...' !∀#∃%&∋()∗+,−./0123456789:;<=>?≅ΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ[∴]⊥_‾αβχδεφγηιϕκλμνοπθρστυϖωξψζ{|}∼'];
+const SYMBOL_HIGH = [...'€ϒ′≤⁄∞ƒ♣♦♥♠↔←↑→↓°±″≥×∝∂•÷≠≡≈…⏐⎯↵ℵℑℜ℘⊗⊕∅∩∪⊃⊇⊄⊂⊆∈∉∠∇®©™∏√⋅¬∧∨⇔⇐⇑⇒⇓◊〈®©™∑⎛⎜⎝⎡⎢⎣⎧⎨⎩⎪ 〉∫⌠⎮⌡⎞⎟⎠⎤⎥⎦⎫⎬⎭'];
+export function symbolChar(code: number) {
+  const low = code >= 0xf000 && code <= 0xf0ff ? code - 0xf000 : code;
+  if (low >= 0x20 && low <= 0x7e) return SYMBOL_LOW[low - 0x20];
+  // 0xf0 is the one code with nothing on it
+  if (low >= 0xa0 && low <= 0xfe && low !== 0xf0) return SYMBOL_HIGH[low - 0xa0];
+  return null;
+}
+const isSymbol = (font: string | null) => !!font && /^symbol$/i.test(font.trim());
+
+// things in a paragraph a reader sees
+const shows = (n: Element) => (n.localName === 't' ? !!n.textContent : ['tab', 'br', 'cr', 'sym', 'drawing', 'pict', 'object'].includes(n.localName));
+const isPageBreak = (n: Element) => n.localName === 'br' && n.getAttributeNS(W, 'type') === 'page';
+// what holds paragraphs that aren't in the page's own flow
+const OFF_FLOW = new Set(['tbl', 'txbxContent', 'drawing', 'pict', 'AlternateContent']);
+const offFlow = (node: Element) => {
+  for (let p = node.parentElement; p; p = p.parentElement) if (OFF_FLOW.has(p.localName)) return true;
+  return false;
+};
+
+// a saved page break where a page has begun already: after a hard page break or a new section, on a paragraph set to
+// start a page, or at the very start. docx-preview would break there a second time and leave a blank page between
+function pageBegun(mark: Element, blocks: Element[], place: Map<Element, number>) {
+  let p = mark.parentElement;
+  while (p && p.localName !== 'p') p = p.parentElement;
+  const at = p ? place.get(p) : undefined;
+  if (!p || at === undefined) return false;
+  const inside = (el: Element) => [...el.getElementsByTagNameNS(W, '*')].filter(shows);
+  const ahead = inside(p).filter((n) => n.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const hard = ahead.map(isPageBreak).lastIndexOf(true);
+  if (hard >= 0) return hard === ahead.length - 1;
+  if (ahead.length) return false;
+  const own = p.getElementsByTagNameNS(W, 'pageBreakBefore')[0];
+  if (own && !isOff(own.getAttributeNS(W, 'val'))) return true;
+  const prev = blocks[at - 1];
+  if (!prev) return true;
+  if (prev.localName !== 'p') return false;
+  if (prev.getElementsByTagNameNS(W, 'sectPr').length) return true;
+  const shown = inside(prev);
+  return shown.length > 0 && isPageBreak(shown[shown.length - 1]);
+}
 
 // docx-preview skips fields, so page numbers would be missing or stuck on the number word last saved
 export function markXml(xml: string, found: Unsupported = { charts: 0, shapes: 0 }) {
@@ -358,6 +406,33 @@ export function markXml(xml: string, found: Unsupported = { charts: 0, shapes: 0
     changed = true;
   }
 
+  // symbols inserted in word's symbol font, and text set in it, as the characters they show
+  for (const sym of [...el(dom, 'sym')]) {
+    const char = isSymbol(sym.getAttributeNS(W, 'font')) ? symbolChar(parseInt(sym.getAttributeNS(W, 'char') ?? '', 16)) : null;
+    if (!char) continue;
+    const text = dom.createElementNS(W, 'w:t');
+    text.textContent = char;
+    sym.replaceWith(text);
+    changed = true;
+  }
+  for (const fonts of [...el(dom, 'rFonts')]) {
+    const run = fonts.parentElement?.parentElement;
+    if (run?.localName !== 'r' || !isSymbol(fonts.getAttributeNS(W, 'ascii') ?? fonts.getAttributeNS(W, 'hAnsi'))) continue;
+    for (const t of el(run, 't')) t.textContent = [...(t.textContent ?? '')].map((c) => symbolChar(c.codePointAt(0)!) ?? c).join('');
+    // the run takes its paragraph's font instead
+    fonts.remove();
+    changed = true;
+  }
+
+  // breaks word's pages already start at
+  const blocks = [...dom.getElementsByTagNameNS(W, '*')].filter((n) => (n.localName === 'p' || n.localName === 'tbl') && !offFlow(n));
+  const place = new Map(blocks.map((b, i) => [b, i]));
+  for (const mark of [...el(dom, 'lastRenderedPageBreak')]) {
+    if (!pageBegun(mark, blocks, place)) continue;
+    mark.remove();
+    changed = true;
+  }
+
   // where word's pages fell when it last saved. those breaks are soft, after an edit text flows across them again
   for (const mark of [...el(dom, 'lastRenderedPageBreak')]) {
     let p = mark.parentElement;
@@ -426,6 +501,51 @@ export async function textDocx(text: string, name: string) {
   return new File([await zip.generateAsync({ type: 'blob' })], `${name}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
+// word places a floating shape against the page or its margins, by an offset, a percentage or an alignment, all kept in
+// its vml style. docx-preview leaves every shape by its paragraph, so those go where word puts them instead, measured
+// from the page, which holds them wherever their paragraph ends up
+function placeShape(svg: SVGSVGElement) {
+  const style = svg.getAttribute('style') ?? '';
+  const prop = (name: string) => new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`, 'i').exec(style)?.[1].trim().toLowerCase() ?? '';
+  const page = svg.closest<HTMLElement>('section.docx');
+  if (prop('position') !== 'absolute' || !page) return;
+  const pad = getComputedStyle(page);
+  const [top, right, bottom, left] = [pad.paddingTop, pad.paddingRight, pad.paddingBottom, pad.paddingLeft].map(parseFloat);
+  const width = page.offsetWidth;
+  const height = pageHeight(page);
+  // where each kind of area starts, and how big it is
+  const across: Record<string, [number, number]> = {
+    page: [0, width],
+    margin: [left, width - left - right],
+    'left-margin-area': [0, left],
+    'inner-margin-area': [0, left],
+    'right-margin-area': [width - right, right],
+    'outer-margin-area': [width - right, right],
+  };
+  const down: Record<string, [number, number]> = {
+    page: [0, height],
+    margin: [top, height - top - bottom],
+    'top-margin-area': [0, top],
+    'bottom-margin-area': [height - bottom, bottom],
+  };
+  const spot = ([start, size]: [number, number], align: string, percent: string, offset: number, extent: number) => {
+    if (['left', 'top', 'inside'].includes(align)) return start;
+    if (align === 'center') return start + (size - extent) / 2;
+    if (['right', 'bottom', 'outside'].includes(align)) return start + size - extent;
+    const pct = parseFloat(percent);
+    // percentages are in tenths
+    return start + (Number.isNaN(pct) ? offset : (size * pct) / 1000);
+  };
+  const cs = getComputedStyle(svg);
+  const box = svg.getBoundingClientRect();
+  const alignX = prop('mso-position-horizontal');
+  // a shape lined up within its column can only be lined up within the margins here
+  const areaX = across[prop('mso-position-horizontal-relative')] ?? (['left', 'center', 'right'].includes(alignX) ? across.margin : null);
+  const areaY = down[prop('mso-position-vertical-relative')];
+  if (areaX) Object.assign(svg.style, { left: `${spot(areaX, alignX, prop('mso-left-percent'), parseFloat(cs.marginLeft) || 0, box.width)}px`, marginLeft: '0px' });
+  if (areaY) Object.assign(svg.style, { top: `${spot(areaY, prop('mso-position-vertical'), prop('mso-top-percent'), parseFloat(cs.marginTop) || 0, box.height)}px`, marginTop: '0px' });
+}
+
 // docx-preview draws word's shapes as svg and sizes them a frame later, so that's done here before the pages are
 // measured. a text box's words also move in from its edges by the inset vmlShapes noted
 function fitShapes(body: HTMLElement) {
@@ -437,6 +557,7 @@ function fitShapes(body: HTMLElement) {
       svg.setAttribute('width', `${Math.ceil(box.x + box.width)}`);
       svg.setAttribute('height', `${Math.ceil(box.y + box.height)}`);
     }
+    placeShape(svg);
     const inset = svg.style.getPropertyValue('--w2p-inset').trim().split(/\s+/).map((pt) => (parseFloat(pt) * 4) / 3);
     if (inset.length !== 4 || inset.some(isNaN)) continue;
     const [left, top, right, bottom] = inset;
