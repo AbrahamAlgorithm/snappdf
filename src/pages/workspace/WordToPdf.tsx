@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Download, Eye, FileText } from 'lucide-react';
+import { Download, Eye, FileText, PenLine } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Button, FileRow, formatSize, NameDialog, PageViewer, Panel, Row, ToolShell, UploadCard, Workbench } from '@/components/toolkit';
 import { closePdf } from '@/lib/pdfjs';
 import { renderPageImage } from '@/lib/pdfUtils';
 import { getTool } from '@/lib/site';
 import { useReportWork } from '@/lib/work';
-import type { WordPdf } from '@/lib/wordToPdf';
+import type { WordLayout, WordPdf } from '@/lib/wordToPdf';
+import WordEditor from '@/pages/workspace/WordEditor';
 
 const tool = getTool('word-to-pdf');
 
@@ -40,6 +41,10 @@ export default function WordToPdf() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  // the page editing starts at, null while not editing
+  const [editing, setEditing] = useState<number | null>(null);
+  // the laid out document, kept so it can be edited and made into a pdf again
+  const layout = useRef<WordLayout | null>(null);
   // picking another file or starting over makes an unfinished conversion stale
   const job = useRef(0);
   useReportWork(tool.id, !!result);
@@ -50,9 +55,13 @@ export default function WordToPdf() {
     setProgress('Reading your document…');
     try {
       // the layout engine and fonts only load once someone uses this tool
-      const { wordToPdf } = await import('@/lib/wordToPdf');
-      const made = await wordToPdf(picked, (message) => id === job.current && setProgress(message));
-      if (id !== job.current) return;
+      const { WordLayout } = await import('@/lib/wordToPdf');
+      const report = (message: string) => id === job.current && setProgress(message);
+      const opened = await WordLayout.open(picked, report);
+      const made = id === job.current ? await opened.toPdf(report) : null;
+      if (!made || id !== job.current) return opened.close();
+      layout.current?.close();
+      layout.current = opened;
       setFile(picked);
       setResult(made);
     } catch (err) {
@@ -120,11 +129,19 @@ export default function WordToPdf() {
 
   const reset = () => {
     job.current++;
+    layout.current?.close();
+    layout.current = null;
     setFile(null);
     setResult(null);
     setProblem(null);
     setProgress(null);
     setViewing(null);
+    setEditing(null);
+  };
+
+  // after editing, the pdf is made again from the edited pages
+  const remake = async () => {
+    if (layout.current) setResult(await layout.current.toPdf());
   };
 
   if (!file || !result) {
@@ -152,10 +169,16 @@ export default function WordToPdf() {
           <Panel
             title="Your PDF"
             footer={
-              <Button variant="primary" size="lg" className="w-full" onClick={() => setSuggestedName(file.name.replace(/\.docx$/i, ''))}>
-                <Download size={18} />
-                Download PDF
-              </Button>
+              <div className="flex gap-2">
+                <Button size="lg" onClick={() => setEditing(0)}>
+                  <PenLine size={18} />
+                  Edit
+                </Button>
+                <Button variant="primary" size="lg" className="flex-1" onClick={() => setSuggestedName(file.name.replace(/\.docx$/i, ''))}>
+                  <Download size={18} />
+                  Download PDF
+                </Button>
+              </div>
             }
           >
             <dl className="mt-5 space-y-2.5 text-[14px]">
@@ -175,7 +198,7 @@ export default function WordToPdf() {
         }
       >
         <FileRow name={file.name} meta={`${formatSize(file.size)} · ${count} ${count === 1 ? 'page' : 'pages'}`} onChange={reset} />
-        <p className="px-1 pb-3 pt-5 text-[14px] text-ink/55">This is your PDF. Tap a page to see it full size.</p>
+        <p className="px-1 pb-3 pt-5 text-[14px] text-ink/55">This is your PDF. Tap a page to see it full size, or Edit to change the text.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {result.pages.map((page, i) => (
             <button
@@ -201,7 +224,30 @@ export default function WordToPdf() {
         </div>
       </Workbench>
 
-      <PageViewer previews={previews} count={count} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} renderPage={renderPage} />
+      <PageViewer
+        previews={previews}
+        count={count}
+        index={viewing}
+        onIndex={setViewing}
+        onClose={() => setViewing(null)}
+        renderPage={renderPage}
+        action={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setEditing(viewing);
+              setViewing(null);
+            }}
+          >
+            <PenLine size={16} />
+            Edit
+          </Button>
+        }
+      />
+
+      {editing !== null && layout.current && (
+        <WordEditor layout={layout.current} start={editing} onSave={remake} onClose={() => setEditing(null)} />
+      )}
 
       <NameDialog
         suggested={suggestedName}
