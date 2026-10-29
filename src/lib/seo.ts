@@ -120,6 +120,29 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
       notUploaded('text'),
     ],
   },
+
+    'compress-pdf': {
+    title: 'Compress PDF Free: Reduce PDF File Size · snappdf',
+    description: 'Shrink a PDF to fit email and upload limits, free. Pick a target size like 1 MB or 2 MB. Everything runs on your device and nothing is uploaded.',
+    howTo: 'How to compress a PDF',
+    steps: [
+      { title: 'Choose a PDF', text: 'Add the PDF you want to make smaller.' },
+      { title: 'Pick a size', text: 'Choose a target like 1 MB or 2 MB, or use Light or Strong compression.' },
+      { title: 'Download the result', text: 'Check the before and after sizes, then save the new PDF. Your original is always available too.' },
+    ],
+    faqs: [
+      {
+        q: 'Will compressing remove the text from my PDF?',
+        a: 'Light compression keeps your text selectable but often saves very little. Strong and target size turn each page into an image, so text, links and form fields can no longer be selected.',
+      },
+      {
+        q: 'Can I make a PDF smaller than a specific size?',
+        a: 'Yes. Pick 1 MB, 2 MB, 5 MB or your own size, and snappdf lowers the quality step by step until the file fits.',
+      },
+      notUploaded('PDF'),
+    ],
+  },
+  
   'pdf-to-word': {
     title: 'Free PDF to Word Converter: Editable DOCX · snappdf',
     description: 'Convert a PDF to an editable Word document that looks like the original. Free, no sign-up, and your PDF never leaves your device.',
