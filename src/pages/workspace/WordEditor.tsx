@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Check, FilePlus2, Minus, Plus, X } from 'lucide-react';
 import { Button, Dialog, IconButton, Spinner } from '@/components/toolkit';
 import type { WordLayout } from '@/lib/wordToPdf';
+import WordToolbar from '@/pages/workspace/WordToolbar';
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.5;
@@ -144,9 +145,13 @@ export default function WordEditor({
           </Button>
         </div>
       </div>
-      <p className="shrink-0 border-b border-line bg-canvas px-4 py-2 text-center text-[12.5px] leading-snug text-ink/55">
-        Tap any text to change it, and press Enter to add space. Text below a red line moves to the next page when you tap Done.
-      </p>
+      <WordToolbar layout={layout} onTip={setTip} />
+      {/* until the first change, then the room goes back to the page */}
+      {!dirty && (
+        <p className="shrink-0 border-b border-line bg-canvas px-4 py-2 text-center text-[12.5px] leading-snug text-ink/55">
+          Tap any text to change it, and press Enter to add space. Text below a red line moves to the next page when you tap Done.
+        </p>
+      )}
 
       <div ref={scroller} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
         <div className="mx-auto" style={{ width: width * zoom, height: height * zoom }}>

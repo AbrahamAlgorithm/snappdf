@@ -389,7 +389,7 @@ const HOST_CSS = `
 .w2p .docx-wrapper { display: block; padding: 0; background: none; }
 .w2p .docx-wrapper > section.docx { margin: 0 0 40px; box-shadow: none; }
 .w2p * { hyphens: manual !important; font-kerning: none !important; font-variant-ligatures: none !important; }
-.w2p .w2p-marked::before { content: none !important; }
+.w2p .w2p-marked::before { position: absolute !important; visibility: hidden !important; }
 .w2p.w2p-editing { position: relative; left: auto; pointer-events: auto; }
 .w2p-editing .docx-wrapper > section.docx { margin: 0 0 24px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 12px rgba(0,0,0,.08); }
 .w2p-editing section.docx > article { outline: none; }
@@ -406,13 +406,16 @@ export class WordLayout {
   private snapshot: HTMLElement | null = null;
   private onEdit: (() => void) | null = null;
   private lastCaret: Range | null = null;
-  private frame = 0;
+  private timer = 0;
 
   private constructor(
     private host: HTMLElement,
     private body: HTMLElement,
     private faces: FontFace[],
     private title: string,
+    private docFonts: string[],
+    // the size most of the text is, in points
+    readonly normalSize: number,
   ) {}
 
   static async open(file: File, onProgress: (message: string) => void = () => {}) {
@@ -460,11 +463,13 @@ export class WordLayout {
       await addFonts([...extra].map((name) => ({ name })), named, faces);
 
       findMarks(body);
-      materializeMarkers(body);
+      syncMarkers(body);
       // docx-preview measures tab stops half a second after drawing
       if (body.querySelector('.docx-tab-stop')) await sleep(650);
       paginate(body);
-      return new WordLayout(host, body, faces, doc.corePropsPart?.props?.title || file.name.replace(/\.docx$/i, ''));
+      const title = doc.corePropsPart?.props?.title || file.name.replace(/\.docx$/i, '');
+      const docFonts = [...fontTable.map((f) => f.name), ...extra].filter((name) => name && !isSymbolFont(name));
+      return new WordLayout(host, body, faces, title, docFonts, commonSize(body));
     } catch (err) {
       host.remove();
       for (const face of faces) document.fonts.delete(face);
@@ -532,6 +537,7 @@ export class WordLayout {
     if (!this.editing) return false;
     this.stopEditing();
     if (this.dirty) {
+      syncMarkers(this.body);
       unflow(this.body);
       paginate(this.body);
     }
@@ -545,6 +551,29 @@ export class WordLayout {
       this.body.replaceWith(this.snapshot);
       this.body = this.snapshot;
     }
+  }
+
+  // fonts the editor offers: the document's own, and word's usual ones. all have stand-ins the pdf can embed
+  get fonts() {
+    return [...new Set([...this.docFonts, 'Arial', 'Calibri', 'Cambria', 'Courier New', 'Times New Roman'])].sort((a, b) => a.localeCompare(b));
+  }
+
+  contains(node: Node | null) {
+    return !!node && this.host.contains(node);
+  }
+
+  // the toolbar's own inputs take the cursor away, this puts it back where it was in the pages
+  restoreCaret() {
+    if (!this.lastCaret) return null;
+    const range = this.lastCaret.cloneRange();
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+    return range;
+  }
+
+  // the toolbar changed the pages without typing
+  touched() {
+    this.changed();
   }
 
   // starts a new page at the cursor: the rest of that paragraph, or that table row, and everything after it
@@ -604,7 +633,7 @@ export class WordLayout {
     this.editing = false;
     this.host.removeEventListener('input', this.changed);
     document.removeEventListener('selectionchange', this.rememberCaret);
-    cancelAnimationFrame(this.frame);
+    clearTimeout(this.timer);
     for (const el of this.body.querySelectorAll('[contenteditable]')) el.removeAttribute('contenteditable');
     for (const page of this.pages) {
       page.classList.remove('w2p-over');
@@ -620,8 +649,12 @@ export class WordLayout {
 
   private changed = () => {
     this.dirty = true;
-    cancelAnimationFrame(this.frame);
-    this.frame = requestAnimationFrame(() => this.checkOverflow());
+    clearTimeout(this.timer);
+    // renumber lists and show pages that ran over once typing pauses
+    this.timer = window.setTimeout(() => {
+      syncMarkers(this.body, true);
+      this.checkOverflow();
+    }, 200);
     this.onEdit?.();
   };
 
@@ -669,8 +702,8 @@ async function addFonts(fonts: { name: string; family?: string }[], named: Set<s
 }
 
 // list numbers and bullets are css counters in ::before, which isn't real text. work them out and put them in the
-// paragraph as text, sized to the hanging indent like word's tab after the number
-function materializeMarkers(body: HTMLElement) {
+// paragraph as text, sized to the hanging indent like word's tab after the number. runs again after edits to renumber
+function syncMarkers(body: HTMLElement, editing = false) {
   const counters = new Map<string, number>();
   const apply = (value: string, how: 'reset' | 'set' | 'increment') => {
     for (const [name, n] of readCounters(value)) {
@@ -680,42 +713,75 @@ function materializeMarkers(body: HTMLElement) {
   };
   const wrapper = body.querySelector('.docx-wrapper');
   if (wrapper) apply(getComputedStyle(wrapper).counterReset, 'reset');
+  // lists made in the editor, each numbered in its own order
+  const made = new Map<string, number>();
 
   for (const p of body.querySelectorAll<HTMLElement>('p')) {
-    // the rest of a paragraph word carried onto the next page has no number of its own
-    if (p.hasAttribute('data-tail')) continue;
+    const existing = p.firstElementChild?.classList.contains('w2p-marker') ? (p.firstElementChild as HTMLElement) : null;
     const own = getComputedStyle(p);
-    apply(own.counterReset, 'reset');
-    apply(own.counterIncrement, 'increment');
-    apply(own.counterSet, 'set');
-    const before = getComputedStyle(p, '::before');
-    if (before.content === 'none' || before.content === 'normal') continue;
-    apply(before.counterReset, 'reset');
-    apply(before.counterIncrement, 'increment');
-    apply(before.counterSet, 'set');
+    let text = '';
+    let before: CSSStyleDeclaration | null = null;
+    // the rest of a paragraph word carried onto the next page has no number of its own
+    if (p.dataset.list && !p.hasAttribute('data-tail')) {
+      const n = (made.get(p.dataset.listId ?? '') ?? 0) + 1;
+      made.set(p.dataset.listId ?? '', n);
+      text = p.dataset.list === 'number' ? `${n}.` : '•';
+    } else if (!p.hasAttribute('data-tail')) {
+      apply(own.counterReset, 'reset');
+      apply(own.counterIncrement, 'increment');
+      apply(own.counterSet, 'set');
+      const pseudo = getComputedStyle(p, '::before');
+      if (pseudo.content !== 'none' && pseudo.content !== 'normal') {
+        apply(pseudo.counterReset, 'reset');
+        apply(pseudo.counterIncrement, 'increment');
+        apply(pseudo.counterSet, 'set');
+        text = plainBullets(evaluateContent(pseudo.content, counters)).replace(/[\t\n]/g, '');
+        before = pseudo;
+      }
+    }
+    if (!text.trim()) {
+      existing?.remove();
+      continue;
+    }
 
-    const text = plainBullets(evaluateContent(before.content, counters)).replace(/[\t\n]/g, '');
-    if (!text.trim()) continue;
     // numbers use the text's font unless the list sets one, like word. symbol bullets too, the stand-in has a real •
-    const runText = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
     let run: HTMLElement | null = null;
-    for (let node = runText.nextNode(); node && !run; node = runText.nextNode()) if (node.textContent?.trim()) run = node.parentElement;
+    for (const node of textNodes(p, /\S/)) if (!run && !node.parentElement?.closest('.w2p-marker')) run = node.parentElement;
     const base = run ? getComputedStyle(run) : own;
-    const family = isSymbolFont(firstFamily(before.fontFamily)) || before.fontFamily === own.fontFamily ? base.fontFamily : before.fontFamily;
-    const size = before.fontSize === own.fontSize ? base.fontSize : before.fontSize;
-
-    const marker = document.createElement('span');
-    marker.className = 'w2p-marker';
-    marker.textContent = text;
+    const family = !before || isSymbolFont(firstFamily(before.fontFamily)) || before.fontFamily === own.fontFamily ? base.fontFamily : before.fontFamily;
+    const size = !before || before.fontSize === own.fontSize ? base.fontSize : before.fontSize;
     const indent = parseFloat(own.textIndent) || 0;
     // text-indent is inherited, and would push the number out of its own box
-    marker.style.cssText = `display:inline-block;white-space:pre;text-indent:0;font-size:${size};font-weight:${before.fontWeight};font-style:${before.fontStyle};color:${before.color}`;
-    marker.style.fontFamily = family;
-    if (indent < 0) marker.style.minWidth = `${-indent}px`;
-    else marker.textContent += '\u00a0';
-    p.prepend(marker);
+    const css = `display:inline-block;white-space:pre;text-indent:0;font-size:${size};font-weight:${before?.fontWeight ?? '400'};font-style:${before?.fontStyle ?? 'normal'};color:${before?.color ?? base.color};${indent < 0 ? `min-width:${-indent}px;` : ''}`;
+    const shown = indent < 0 ? text : `${text}\u00a0`;
     p.classList.add('w2p-marked');
+    // left alone when nothing changed, so renumbering while someone types doesn't move their cursor
+    if (existing?.textContent === shown && existing.dataset.look === css + family) continue;
+
+    const marker = existing ?? document.createElement('span');
+    marker.className = 'w2p-marker';
+    marker.textContent = shown;
+    marker.style.cssText = css;
+    marker.style.fontFamily = family;
+    marker.dataset.look = css + family;
+    if (editing) marker.contentEditable = 'false';
+    if (existing) continue;
+    // enter in a list leaves the cursor at the very start of the new item, it belongs after the number
+    const selection = getSelection();
+    const atStart = selection?.isCollapsed && selection.anchorNode === p && selection.anchorOffset === 0;
+    p.prepend(marker);
+    if (atStart) selection.collapse(p, 1);
   }
+}
+
+// the size most of the text is, what normal text goes back to
+function commonSize(body: HTMLElement) {
+  const amounts = new Map<number, number>();
+  for (const node of textNodes(body, /\S/)) {
+    const pt = Math.round(parseFloat(getComputedStyle(node.parentElement!).fontSize) * PT * 2) / 2;
+    amounts.set(pt, (amounts.get(pt) ?? 0) + node.data.trim().length);
+  }
+  return [...amounts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 11;
 }
 
 const pageHeight = (page: HTMLElement) => parseFloat(getComputedStyle(page).minHeight) || page.offsetHeight;
