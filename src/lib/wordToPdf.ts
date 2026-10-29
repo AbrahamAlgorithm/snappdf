@@ -173,10 +173,12 @@ export function evaluateContent(content: string, counters: Map<string, number>) 
 }
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-// put into the document before layout and swapped out after: page numbers, and a table's repeating header rows
+// marks put into the document before layout: page numbers, repeating header rows, and where word's own pages started
 const PAGE = '\ue000';
 const PAGES_TOTAL = '\ue001';
 const HEADER_ROW = '\ue002';
+const SOFT_PAGE = '\ue003';
+const SOFT_SPLIT = '\ue004';
 
 const fieldMark = (instruction: string) => {
   const name = instruction.trim().split(/\s+/)[0]?.toUpperCase();
@@ -257,6 +259,19 @@ export function markXml(xml: string) {
     text.textContent = HEADER_ROW + (text.textContent ?? '');
     changed = true;
   }
+
+  // where word's pages fell when it last saved. those breaks are soft, after an edit text flows across them again
+  for (const mark of [...el(dom, 'lastRenderedPageBreak')]) {
+    let p = mark.parentElement;
+    while (p && p.localName !== 'p') p = p.parentElement;
+    if (!p) continue;
+    const texts = [...el(p, 't')];
+    const after = texts.find((t) => mark.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if (!after) continue;
+    const midway = texts.some((t) => t.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING && t.textContent?.trim());
+    after.textContent = (midway ? SOFT_SPLIT : SOFT_PAGE) + (after.textContent ?? '');
+    changed = true;
+  }
   return changed ? new XMLSerializer().serializeToString(dom) : xml;
 }
 
@@ -275,24 +290,61 @@ async function prepare(file: File): Promise<Blob> {
   return changed ? zip.generateAsync({ type: 'blob' }) : file;
 }
 
-// after the pages are laid out: real page numbers, and repeating header rows found
-function fillMarks(pages: HTMLElement[]) {
+const textNodes = (root: Node, test: RegExp) => {
+  const found: Text[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) if (test.test(node.data)) found.push(node);
+  return found;
+};
+
+// page number fields become spans the first time, so every later layout can renumber them
+function numberPages(pages: HTMLElement[]) {
+  for (const node of textNodes(pages[0]?.parentElement ?? document.createElement('div'), /[\ue000\ue001]/)) {
+    node.replaceWith(
+      ...node.data.split(/([\ue000\ue001])/).filter(Boolean).map((part) => {
+        if (part !== PAGE && part !== PAGES_TOTAL) return part;
+        const span = document.createElement('span');
+        span.dataset.mark = part === PAGE ? 'page' : 'total';
+        return span;
+      }),
+    );
+  }
   pages.forEach((page, i) => {
-    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
-      if (/[\ue000\ue001]/.test(node.data)) node.data = node.data.replaceAll(PAGE, String(i + 1)).replaceAll(PAGES_TOTAL, String(pages.length));
-    }
+    for (const span of page.querySelectorAll<HTMLElement>('[data-mark]')) span.textContent = String(span.dataset.mark === 'page' ? i + 1 : pages.length);
   });
 }
 
-function findHeaderRows(body: HTMLElement) {
-  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
-    if (!node.data.includes(HEADER_ROW)) continue;
-    node.data = node.data.replaceAll(HEADER_ROW, '');
-    node.parentElement?.closest('tr')?.setAttribute('data-repeat', '');
+// the first text on a page, where a page break mark would be if word started the page there
+function firstText(page: HTMLElement) {
+  for (const article of page.querySelectorAll(':scope > article')) {
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent?.trim()) return node;
+  }
+  return null;
+}
+
+// after layout: repeating header rows, and pages word started by itself, which take text back after an edit
+function findMarks(body: HTMLElement) {
+  for (const node of textNodes(body, /[\ue002-\ue004]/)) {
+    if (node.data.includes(HEADER_ROW)) node.parentElement?.closest('tr')?.setAttribute('data-repeat', '');
+    const page = node.parentElement?.closest<HTMLElement>('section.docx');
+    // a mark anywhere else is a break docx-preview didn't follow, like one inside a table
+    if (page && /[\ue003\ue004]/.test(node.data) && firstText(page) === node) {
+      page.setAttribute('data-flow', '');
+      const p = node.parentElement?.closest<HTMLElement>('p');
+      // the rest of a paragraph carries on with no first line indent or space above, like in word
+      if (p && node.data.includes(SOFT_SPLIT)) markTail(p);
+    }
+    node.data = node.data.replace(/[\ue002-\ue004]/g, '');
   }
 }
+
+const markTail = (p: HTMLElement) => {
+  p.setAttribute('data-tail', '');
+  p.style.textIndent = '0px';
+  p.style.marginTop = '0px';
+  p.classList.add('w2p-marked');
+};
 
 // bullets from word's symbol fonts sit in private use codes, these are the real characters
 const SYMBOL_BULLETS: Record<string, string> = {
@@ -337,64 +389,109 @@ const HOST_CSS = `
 .w2p .docx-wrapper { display: block; padding: 0; background: none; }
 .w2p .docx-wrapper > section.docx { margin: 0 0 40px; box-shadow: none; }
 .w2p * { hyphens: manual !important; font-kerning: none !important; font-variant-ligatures: none !important; }
-.w2p .w2p-marked::before { content: none !important; }
+.w2p .w2p-marked::before { position: absolute !important; visibility: hidden !important; }
+.w2p.w2p-editing { position: relative; left: auto; pointer-events: auto; }
+.w2p-editing .docx-wrapper > section.docx { margin: 0 0 24px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 12px rgba(0,0,0,.08); }
+.w2p-editing section.docx > article { outline: none; }
+.w2p-editing section.docx.w2p-over::after {
+  content: 'Below this line moves to the next page'; position: absolute; left: 0; right: 0; top: var(--w2p-limit); z-index: 2;
+  border-top: 2px dashed #e5484d; padding: 2px 8px 0; text-align: right; font: 600 12px/1.4 system-ui, sans-serif; color: #e5484d; pointer-events: none;
+}
 `;
 
-export async function wordToPdf(file: File, onProgress: (message: string) => void = () => {}): Promise<WordPdf> {
-  const host = document.createElement('div');
-  host.className = 'w2p';
-  host.setAttribute('aria-hidden', 'true');
-  const css = document.createElement('style');
-  css.textContent = HOST_CSS;
-  const styles = document.createElement('div');
-  const body = document.createElement('div');
-  host.append(css, styles, body);
-  const faces: FontFace[] = [];
+// a word document laid out as pages, kept open so it can be edited and made into a pdf again
+export class WordLayout {
+  private editing = false;
+  private dirty = false;
+  private snapshot: HTMLElement | null = null;
+  private onEdit: (() => void) | null = null;
+  private lastCaret: Range | null = null;
+  private timer = 0;
 
-  try {
-    onProgress('Reading your document…');
-    const options = {
-      className: 'docx',
-      inWrapper: true,
-      breakPages: true,
-      // word saves where its pages broke, so pages break in the same places
-      ignoreLastRenderedPageBreak: false,
-      // lays out tab stops, which cvs lean on for dates
-      experimental: true,
-      ignoreFonts: true,
-      useBase64URL: true,
-      renderChanges: false,
-      renderComments: false,
-    };
-    const doc = await parseAsync(await prepare(file), options);
-    const fontTable: { name: string; family?: string }[] = doc.fontTablePart?.fonts ?? [];
-    const named = new Set<string>();
-    await addFonts([...WORD_DEFAULTS.map((name) => ({ name })), ...fontTable], named, faces);
+  private constructor(
+    private host: HTMLElement,
+    private body: HTMLElement,
+    private faces: FontFace[],
+    private title: string,
+    private docFonts: string[],
+    // the size most of the text is, in points
+    readonly normalSize: number,
+  ) {}
 
-    onProgress('Laying out the pages…');
-    document.body.append(host);
-    const nodes = await renderDocument(doc, options);
-    for (const node of nodes) (node.nodeName === 'STYLE' || node.nodeName === '#comment' ? styles : body).append(node);
+  static async open(file: File, onProgress: (message: string) => void = () => {}) {
+    const host = document.createElement('div');
+    host.className = 'w2p';
+    host.setAttribute('aria-hidden', 'true');
+    const css = document.createElement('style');
+    css.textContent = HOST_CSS;
+    const styles = document.createElement('div');
+    const body = document.createElement('div');
+    host.append(css, styles, body);
+    const faces: FontFace[] = [];
 
-    // fonts named in styles but missing from the font table
-    const extra = new Set<string>();
-    for (const el of body.querySelectorAll('*')) {
-      const name = firstFamily(getComputedStyle(el).fontFamily);
-      if (name && !named.has(name) && !GENERIC.has(name) && !isSymbolFont(name)) extra.add(name);
+    try {
+      onProgress('Reading your document…');
+      const options = {
+        className: 'docx',
+        inWrapper: true,
+        breakPages: true,
+        // word saves where its pages broke, so pages break in the same places
+        ignoreLastRenderedPageBreak: false,
+        // lays out tab stops, which cvs lean on for dates
+        experimental: true,
+        ignoreFonts: true,
+        useBase64URL: true,
+        renderChanges: false,
+        renderComments: false,
+      };
+      const doc = await parseAsync(await prepare(file), options);
+      const fontTable: { name: string; family?: string }[] = doc.fontTablePart?.fonts ?? [];
+      const named = new Set<string>();
+      await addFonts([...WORD_DEFAULTS.map((name) => ({ name })), ...fontTable], named, faces);
+
+      onProgress('Laying out the pages…');
+      document.body.append(host);
+      const nodes = await renderDocument(doc, options);
+      for (const node of nodes) (node.nodeName === 'STYLE' || node.nodeName === '#comment' ? styles : body).append(node);
+
+      // fonts named in styles but missing from the font table
+      const extra = new Set<string>();
+      for (const el of body.querySelectorAll('*')) {
+        const name = firstFamily(getComputedStyle(el).fontFamily);
+        if (name && !named.has(name) && !GENERIC.has(name) && !isSymbolFont(name)) extra.add(name);
+      }
+      await addFonts([...extra].map((name) => ({ name })), named, faces);
+
+      findMarks(body);
+      syncMarkers(body);
+      // docx-preview measures tab stops half a second after drawing
+      if (body.querySelector('.docx-tab-stop')) await sleep(650);
+      paginate(body);
+      const title = doc.corePropsPart?.props?.title || file.name.replace(/\.docx$/i, '');
+      const docFonts = [...fontTable.map((f) => f.name), ...extra].filter((name) => name && !isSymbolFont(name));
+      return new WordLayout(host, body, faces, title, docFonts, commonSize(body));
+    } catch (err) {
+      host.remove();
+      for (const face of faces) document.fonts.delete(face);
+      throw err;
     }
-    await addFonts([...extra].map((name) => ({ name })), named, faces);
+  }
 
-    findHeaderRows(body);
-    materializeMarkers(body);
-    // docx-preview measures tab stops half a second after drawing
-    if (body.querySelector('.docx-tab-stop')) await sleep(650);
-    paginate(body);
-    const pageEls = [...body.querySelectorAll<HTMLElement>('section.docx')];
-    fillMarks(pageEls);
+  get pages() {
+    return [...this.body.querySelectorAll<HTMLElement>('section.docx')];
+  }
 
+  // the widest page, in css px
+  get width() {
+    return Math.max(...this.pages.map((page) => page.offsetWidth));
+  }
+
+  async toPdf(onProgress: (message: string) => void = () => {}): Promise<WordPdf> {
+    const pageEls = this.pages;
+    numberPages(pageEls);
     const pdf = await PDFDocument.create();
     pdf.registerFontkit(fontkit);
-    pdf.setTitle(doc.corePropsPart?.props?.title || file.name.replace(/\.docx$/i, ''));
+    pdf.setTitle(this.title);
     pdf.setCreator('snappdf');
     pdf.setProducer('snappdf');
 
@@ -409,11 +506,182 @@ export async function wordToPdf(file: File, onProgress: (message: string) => voi
 
     onProgress('Saving your PDF…');
     return { bytes: await pdf.save(), pages, missingText: painter.missing > 0, skipped: painter.skipped };
-  } finally {
-    host.remove();
-    for (const face of faces) document.fonts.delete(face);
+  }
+
+  // edits happen on the laid out pages themselves, moved into view inside mount. onEdit hears about every change
+  startEditing(mount: HTMLElement, onEdit: () => void) {
+    if (this.editing) return;
+    this.editing = true;
+    this.dirty = false;
+    this.onEdit = onEdit;
+    this.snapshot = this.body.cloneNode(true) as HTMLElement;
+    // where each page's text has to stop, measured while still full size off screen
+    for (const page of this.pages) page.style.setProperty('--w2p-limit', `${contentBottom(page) - page.getBoundingClientRect().top}px`);
+    for (const article of this.body.querySelectorAll<HTMLElement>('section.docx > article')) {
+      article.contentEditable = 'true';
+      article.spellcheck = false;
+    }
+    for (const marker of this.body.querySelectorAll<HTMLElement>('.w2p-marker')) marker.contentEditable = 'false';
+    // enter makes a new paragraph like word, not a line break
+    document.execCommand('defaultParagraphSeparator', false, 'p');
+    this.host.classList.add('w2p-editing');
+    this.host.removeAttribute('aria-hidden');
+    this.host.addEventListener('input', this.changed);
+    document.addEventListener('selectionchange', this.rememberCaret);
+    mount.append(this.host);
+    this.checkOverflow();
+  }
+
+  // keeps the edits and flows the text across pages again. says whether anything changed
+  finishEditing() {
+    if (!this.editing) return false;
+    this.stopEditing();
+    if (this.dirty) {
+      syncMarkers(this.body);
+      unflow(this.body);
+      paginate(this.body);
+    }
+    return this.dirty;
+  }
+
+  cancelEditing() {
+    if (!this.editing) return;
+    this.stopEditing();
+    if (this.snapshot) {
+      this.body.replaceWith(this.snapshot);
+      this.body = this.snapshot;
+    }
+  }
+
+  // fonts the editor offers: the document's own, and word's usual ones. all have stand-ins the pdf can embed
+  get fonts() {
+    return [...new Set([...this.docFonts, 'Arial', 'Calibri', 'Cambria', 'Courier New', 'Times New Roman'])].sort((a, b) => a.localeCompare(b));
+  }
+
+  contains(node: Node | null) {
+    return !!node && this.host.contains(node);
+  }
+
+  // the toolbar's own inputs take the cursor away, this puts it back where it was in the pages
+  restoreCaret() {
+    if (!this.lastCaret) return null;
+    const range = this.lastCaret.cloneRange();
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+    return range;
+  }
+
+  // the toolbar changed the pages without typing
+  touched() {
+    this.changed();
+  }
+
+  // starts a new page at the cursor: the rest of that paragraph, or that table row, and everything after it
+  newPageAtCaret() {
+    const caret = this.caret();
+    if (!caret) return false;
+    const start = caret.startContainer;
+    const article = (start instanceof Element ? start : start.parentElement)?.closest<HTMLElement>('section.docx > article');
+    if (!article || !this.host.contains(article)) return false;
+    let block: Node = start;
+    while (block.parentNode && block.parentNode !== article) block = block.parentNode;
+    if (!(block instanceof HTMLElement)) return false;
+
+    let rest: HTMLElement | null = block;
+    if (block.tagName === 'TABLE') {
+      const row = (start instanceof Element ? start : start.parentElement)?.closest('tr');
+      const index = row ? [...(block as HTMLTableElement).rows].indexOf(row as HTMLTableRowElement) : 0;
+      rest = index > 0 ? splitTableAt(block as HTMLTableElement, index) : block;
+    } else {
+      const before = document.createRange();
+      before.setStart(block, 0);
+      before.setEnd(caret.startContainer, caret.startOffset);
+      const after = document.createRange();
+      after.setStart(caret.startContainer, caret.startOffset);
+      after.setEnd(block, block.childNodes.length);
+      if (!before.toString().trim()) rest = block;
+      else if (!after.toString().trim()) rest = (block.nextElementSibling as HTMLElement | null) ?? addEmptyAfter(block);
+      else {
+        const tail = block.cloneNode(false) as HTMLElement;
+        tail.append(after.extractContents());
+        tail.style.textIndent = '0px';
+        tail.style.marginTop = '0px';
+        tail.classList.add('w2p-marked');
+        block.after(tail);
+        rest = tail;
+      }
+    }
+    moveToNewPage(article.parentElement as HTMLElement, rest, false);
+
+    const cursor = document.createRange();
+    cursor.setStart(rest, 0);
+    cursor.collapse(true);
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(cursor);
+    rest.scrollIntoView({ block: 'center' });
+    this.changed();
+    return true;
+  }
+
+  close() {
+    this.cancelEditing();
+    this.host.remove();
+    for (const face of this.faces) document.fonts.delete(face);
+  }
+
+  private stopEditing() {
+    this.editing = false;
+    this.host.removeEventListener('input', this.changed);
+    document.removeEventListener('selectionchange', this.rememberCaret);
+    clearTimeout(this.timer);
+    for (const el of this.body.querySelectorAll('[contenteditable]')) el.removeAttribute('contenteditable');
+    for (const page of this.pages) {
+      page.classList.remove('w2p-over');
+      page.style.removeProperty('--w2p-limit');
+    }
+    this.host.classList.remove('w2p-editing');
+    this.host.setAttribute('aria-hidden', 'true');
+    getSelection()?.removeAllRanges();
+    document.body.append(this.host);
+    this.onEdit = null;
+    this.lastCaret = null;
+  }
+
+  private changed = () => {
+    this.dirty = true;
+    clearTimeout(this.timer);
+    // renumber lists and show pages that ran over once typing pauses
+    this.timer = window.setTimeout(() => {
+      syncMarkers(this.body, true);
+      this.checkOverflow();
+    }, 200);
+    this.onEdit?.();
+  };
+
+  // a page that's grown past its end shows the line its text has to fit above
+  private checkOverflow() {
+    for (const page of this.pages) page.classList.toggle('w2p-over', page.offsetHeight > pageHeight(page) + 1);
+  }
+
+  // tapping a button can drop the selection on phones, so the last place the cursor was in the pages is kept
+  private rememberCaret = () => {
+    const selection = getSelection();
+    if (selection?.rangeCount && this.host.contains(selection.anchorNode)) this.lastCaret = selection.getRangeAt(0).cloneRange();
+  };
+
+  private caret() {
+    const selection = getSelection();
+    if (selection?.rangeCount && this.host.contains(selection.anchorNode)) return selection.getRangeAt(0);
+    return this.lastCaret;
   }
 }
+
+const addEmptyAfter = (block: HTMLElement) => {
+  const empty = block.cloneNode(false) as HTMLElement;
+  empty.append(document.createElement('br'));
+  block.after(empty);
+  return empty;
+};
 
 // registers the stand-in faces under the names the document uses, so its css picks them up as is
 async function addFonts(fonts: { name: string; family?: string }[], named: Set<string>, faces: FontFace[]) {
@@ -434,8 +702,8 @@ async function addFonts(fonts: { name: string; family?: string }[], named: Set<s
 }
 
 // list numbers and bullets are css counters in ::before, which isn't real text. work them out and put them in the
-// paragraph as text, sized to the hanging indent like word's tab after the number
-function materializeMarkers(body: HTMLElement) {
+// paragraph as text, sized to the hanging indent like word's tab after the number. runs again after edits to renumber
+function syncMarkers(body: HTMLElement, editing = false) {
   const counters = new Map<string, number>();
   const apply = (value: string, how: 'reset' | 'set' | 'increment') => {
     for (const [name, n] of readCounters(value)) {
@@ -445,39 +713,75 @@ function materializeMarkers(body: HTMLElement) {
   };
   const wrapper = body.querySelector('.docx-wrapper');
   if (wrapper) apply(getComputedStyle(wrapper).counterReset, 'reset');
+  // lists made in the editor, each numbered in its own order
+  const made = new Map<string, number>();
 
   for (const p of body.querySelectorAll<HTMLElement>('p')) {
+    const existing = p.firstElementChild?.classList.contains('w2p-marker') ? (p.firstElementChild as HTMLElement) : null;
     const own = getComputedStyle(p);
-    apply(own.counterReset, 'reset');
-    apply(own.counterIncrement, 'increment');
-    apply(own.counterSet, 'set');
-    const before = getComputedStyle(p, '::before');
-    if (before.content === 'none' || before.content === 'normal') continue;
-    apply(before.counterReset, 'reset');
-    apply(before.counterIncrement, 'increment');
-    apply(before.counterSet, 'set');
+    let text = '';
+    let before: CSSStyleDeclaration | null = null;
+    // the rest of a paragraph word carried onto the next page has no number of its own
+    if (p.dataset.list && !p.hasAttribute('data-tail')) {
+      const n = (made.get(p.dataset.listId ?? '') ?? 0) + 1;
+      made.set(p.dataset.listId ?? '', n);
+      text = p.dataset.list === 'number' ? `${n}.` : '•';
+    } else if (!p.hasAttribute('data-tail')) {
+      apply(own.counterReset, 'reset');
+      apply(own.counterIncrement, 'increment');
+      apply(own.counterSet, 'set');
+      const pseudo = getComputedStyle(p, '::before');
+      if (pseudo.content !== 'none' && pseudo.content !== 'normal') {
+        apply(pseudo.counterReset, 'reset');
+        apply(pseudo.counterIncrement, 'increment');
+        apply(pseudo.counterSet, 'set');
+        text = plainBullets(evaluateContent(pseudo.content, counters)).replace(/[\t\n]/g, '');
+        before = pseudo;
+      }
+    }
+    if (!text.trim()) {
+      existing?.remove();
+      continue;
+    }
 
-    const text = plainBullets(evaluateContent(before.content, counters)).replace(/[\t\n]/g, '');
-    if (!text.trim()) continue;
     // numbers use the text's font unless the list sets one, like word. symbol bullets too, the stand-in has a real •
-    const runText = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
     let run: HTMLElement | null = null;
-    for (let node = runText.nextNode(); node && !run; node = runText.nextNode()) if (node.textContent?.trim()) run = node.parentElement;
+    for (const node of textNodes(p, /\S/)) if (!run && !node.parentElement?.closest('.w2p-marker')) run = node.parentElement;
     const base = run ? getComputedStyle(run) : own;
-    const family = isSymbolFont(firstFamily(before.fontFamily)) || before.fontFamily === own.fontFamily ? base.fontFamily : before.fontFamily;
-    const size = before.fontSize === own.fontSize ? base.fontSize : before.fontSize;
-
-    const marker = document.createElement('span');
-    marker.textContent = text;
+    const family = !before || isSymbolFont(firstFamily(before.fontFamily)) || before.fontFamily === own.fontFamily ? base.fontFamily : before.fontFamily;
+    const size = !before || before.fontSize === own.fontSize ? base.fontSize : before.fontSize;
     const indent = parseFloat(own.textIndent) || 0;
     // text-indent is inherited, and would push the number out of its own box
-    marker.style.cssText = `display:inline-block;white-space:pre;text-indent:0;font-size:${size};font-weight:${before.fontWeight};font-style:${before.fontStyle};color:${before.color}`;
-    marker.style.fontFamily = family;
-    if (indent < 0) marker.style.minWidth = `${-indent}px`;
-    else marker.textContent += '\u00a0';
-    p.prepend(marker);
+    const css = `display:inline-block;white-space:pre;text-indent:0;font-size:${size};font-weight:${before?.fontWeight ?? '400'};font-style:${before?.fontStyle ?? 'normal'};color:${before?.color ?? base.color};${indent < 0 ? `min-width:${-indent}px;` : ''}`;
+    const shown = indent < 0 ? text : `${text}\u00a0`;
     p.classList.add('w2p-marked');
+    // left alone when nothing changed, so renumbering while someone types doesn't move their cursor
+    if (existing?.textContent === shown && existing.dataset.look === css + family) continue;
+
+    const marker = existing ?? document.createElement('span');
+    marker.className = 'w2p-marker';
+    marker.textContent = shown;
+    marker.style.cssText = css;
+    marker.style.fontFamily = family;
+    marker.dataset.look = css + family;
+    if (editing) marker.contentEditable = 'false';
+    if (existing) continue;
+    // enter in a list leaves the cursor at the very start of the new item, it belongs after the number
+    const selection = getSelection();
+    const atStart = selection?.isCollapsed && selection.anchorNode === p && selection.anchorOffset === 0;
+    p.prepend(marker);
+    if (atStart) selection.collapse(p, 1);
   }
+}
+
+// the size most of the text is, what normal text goes back to
+function commonSize(body: HTMLElement) {
+  const amounts = new Map<number, number>();
+  for (const node of textNodes(body, /\S/)) {
+    const pt = Math.round(parseFloat(getComputedStyle(node.parentElement!).fontSize) * PT * 2) / 2;
+    amounts.set(pt, (amounts.get(pt) ?? 0) + node.data.trim().length);
+  }
+  return [...amounts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 11;
 }
 
 const pageHeight = (page: HTMLElement) => parseFloat(getComputedStyle(page).minHeight) || page.offsetHeight;
@@ -559,17 +863,18 @@ function splitParagraph(p: HTMLElement, limit: number): HTMLElement {
   range.setEnd(p, p.childNodes.length);
   const tail = p.cloneNode(false) as HTMLElement;
   tail.append(range.extractContents());
-  // the rest of a paragraph has no first-line indent, number or space above
-  tail.style.textIndent = '0px';
-  tail.style.marginTop = '0px';
-  tail.classList.add('w2p-marked');
+  markTail(tail);
   p.after(tail);
   return tail;
 }
 
 function splitTable(table: HTMLTableElement, limit: number): HTMLElement {
+  return splitTableAt(table, [...table.rows].findIndex((row) => row.getBoundingClientRect().bottom > limit + 0.5), true);
+}
+
+// rows from index on become a table of their own. a soft split joins back up once text flows again
+function splitTableAt(table: HTMLTableElement, index: number, soft = false): HTMLElement {
   const rows = [...table.rows];
-  const index = rows.findIndex((row) => row.getBoundingClientRect().bottom > limit + 0.5);
   // header rows marked to repeat start the table again on the next page
   const head: HTMLTableRowElement[] = [];
   for (const row of rows) {
@@ -578,9 +883,15 @@ function splitTable(table: HTMLTableElement, limit: number): HTMLElement {
   }
   if (index <= head.length) return table;
   const tail = table.cloneNode(false) as HTMLTableElement;
+  if (soft) tail.setAttribute('data-tail', '');
   const cols = table.querySelector(':scope > colgroup');
   if (cols) tail.append(cols.cloneNode(true));
-  for (const row of [...head.map((r) => r.cloneNode(true) as HTMLTableRowElement), ...rows.slice(index)]) {
+  const copies = head.map((r) => {
+    const copy = r.cloneNode(true) as HTMLTableRowElement;
+    copy.setAttribute('data-clone', '');
+    return copy;
+  });
+  for (const row of [...copies, ...rows.slice(index)]) {
     const parent = (row.isConnected ? row : head[0]).parentElement!;
     if (parent === table) {
       tail.append(row);
@@ -594,8 +905,10 @@ function splitTable(table: HTMLTableElement, limit: number): HTMLElement {
   return tail;
 }
 
-function moveToNewPage(page: HTMLElement, from: HTMLElement) {
+// a soft new page carries on from this one, and gives its text back when text flows again
+function moveToNewPage(page: HTMLElement, from: HTMLElement, soft = true) {
   const next = page.cloneNode(false) as HTMLElement;
+  next.toggleAttribute('data-flow', soft);
   const footer = [...page.children].find((c) => c.tagName === 'FOOTER');
   for (const header of [...page.children].filter((c) => c.tagName === 'HEADER')) next.append(header.cloneNode(true));
 
@@ -615,6 +928,42 @@ function moveToNewPage(page: HTMLElement, from: HTMLElement) {
   }
   if (footer) next.append(footer.cloneNode(true));
   page.after(next);
+}
+
+// undoes soft page breaks so edited text can flow again, split paragraphs and tables join up, real breaks stay
+function unflow(body: HTMLElement) {
+  for (const page of body.querySelectorAll<HTMLElement>('section.docx[data-flow]')) {
+    let prev = page.previousElementSibling;
+    while (prev && !prev.matches('section.docx')) prev = prev.previousElementSibling;
+    if (!prev) continue;
+    const end = [...prev.children].find((c) => c.tagName === 'FOOTER') ?? null;
+    const target = [...prev.children].filter((c) => c.tagName === 'ARTICLE').at(-1);
+    const first = [...page.children].find((c) => c.tagName === 'ARTICLE');
+    for (const child of [...page.children]) {
+      if (child.tagName === 'HEADER' || child.tagName === 'FOOTER') continue;
+      if (child === first && target) {
+        const head = target.lastElementChild;
+        const tail = child.firstElementChild;
+        if (head && tail?.hasAttribute('data-tail') && head.tagName === tail.tagName) join(head as HTMLElement, tail as HTMLElement);
+        target.append(...child.childNodes);
+      } else {
+        // later sections and footnotes go along as they are
+        prev.insertBefore(child, end);
+      }
+    }
+    page.remove();
+  }
+}
+
+function join(head: HTMLElement, tail: HTMLElement) {
+  if (tail instanceof HTMLTableElement && head instanceof HTMLTableElement) {
+    const box = head.rows[head.rows.length - 1]?.parentElement ?? head;
+    box.append(...[...tail.rows].filter((row) => !row.hasAttribute('data-clone')));
+  } else {
+    head.append(...tail.childNodes);
+    head.normalize();
+  }
+  tail.remove();
 }
 
 type Color = { color: RGB; alpha: number };

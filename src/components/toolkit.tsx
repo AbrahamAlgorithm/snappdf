@@ -680,6 +680,7 @@ export function PageViewer({
   selected,
   onToggle,
   renderPage,
+  action,
 }: {
   previews: string[];
   count: number;
@@ -689,6 +690,7 @@ export function PageViewer({
   selected?: boolean;
   onToggle?: () => void;
   renderPage?: (index: number, width: number, height: number) => Promise<string>;
+  action?: ReactNode; // a button on the right of the top bar
 }) {
   const open = index !== null;
   useEscape(open, onClose);
@@ -793,6 +795,7 @@ export function PageViewer({
                 {selected ? 'Selected' : 'Select page'}
               </Button>
             )}
+            {action && <div className="ml-auto">{action}</div>}
           </div>
           <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center px-14 pb-6 sm:px-20">
             <IconButton
