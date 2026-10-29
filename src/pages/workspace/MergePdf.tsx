@@ -421,7 +421,7 @@ export default function MergePdf() {
   const starts = items.map((_, i) => items.slice(0, i).reduce((sum, item) => sum + item.pageCount, 0));
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={progress ? undefined : startOver} what="your PDFs">
       <Workbench
         panel={
           <Panel

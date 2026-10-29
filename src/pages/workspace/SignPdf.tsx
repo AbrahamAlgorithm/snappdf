@@ -190,7 +190,7 @@ export default function SignPdf() {
   ) : null;
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={docBytes && !saving ? () => signer.current?.clearDocument() : undefined} what="this document">
       <Workbench panel={panel}>
         <DocumentSigner ref={signer} selectedSigId={selectedId} onSelectSigId={setSelectedId} onDocumentChange={onDocumentChange} />
       </Workbench>

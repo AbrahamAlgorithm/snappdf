@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { DropzoneState } from 'react-dropzone';
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import { APP_HREF, toolHref } from '@/lib/router';
 import { TOOL_GUIDES } from '@/lib/seo';
 import { TOOLS, type Tool } from '@/lib/site';
@@ -278,7 +278,17 @@ export function PrivacyNote() {
 }
 
 // layout
-export function ToolShell({ tool, children }: { tool: Tool; children: ReactNode }) {
+// onDelete adds a bin to the bar while a tool has files, so nobody has to refresh to get rid of them
+export function ToolShell({ tool, onDelete, what = 'your files', children }: { tool: Tool; onDelete?: () => void; what?: string; children: ReactNode }) {
+  const [asking, setAsking] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+
+  useEffect(() => {
+    if (!deleted) return;
+    const id = setTimeout(() => setDeleted(false), 3500);
+    return () => clearTimeout(id);
+  }, [deleted]);
+
   return (
     <div className="min-h-screen bg-subtle text-ink">
       <header className="sticky top-0 z-40 border-b border-line bg-canvas">
@@ -293,10 +303,63 @@ export function ToolShell({ tool, children }: { tool: Tool; children: ReactNode 
           </a>
           <ToolIcon tool={tool} size="sm" className="ml-1" />
           <h1 className="ml-2.5 truncate text-[17px] font-semibold tracking-[-0.02em]">{tool.name}</h1>
-          <PrivacyChip className="ml-auto hidden sm:inline-flex" />
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <PrivacyChip className="hidden sm:inline-flex" />
+            {onDelete && (
+              <IconButton label={`Delete ${what}`} onClick={() => setAsking(true)} className="hover:bg-red-50 hover:text-red-600">
+                <Trash2 size={19} />
+              </IconButton>
+            )}
+          </div>
         </div>
       </header>
       {children}
+
+      <Dialog open={asking} onClose={() => setAsking(false)} labelledBy={`${tool.id}-delete-title`}>
+        <span className="grid size-12 place-items-center rounded-full bg-red-50 text-red-600">
+          <Trash2 size={22} />
+        </span>
+        <h2 id={`${tool.id}-delete-title`} className="mt-5 text-[20px] font-semibold tracking-[-0.02em]">
+          Delete {what}?
+        </h2>
+        <p className="mt-1.5 text-[14px] leading-relaxed text-ink/60">
+          Everything is cleared from this page straight away. Nothing was ever uploaded, so no copy is left anywhere.
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setAsking(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={() => {
+              setAsking(false);
+              onDelete?.();
+              setDeleted(true);
+            }}
+          >
+            <Trash2 size={16} />
+            Delete
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* stays mounted so screen readers hear the message when it appears */}
+      <div role="status" className="pointer-events-none fixed inset-x-0 bottom-6 z-[90] flex justify-center px-4">
+        <AnimatePresence>
+          {deleted && (
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-[14px] font-medium text-canvas shadow-lg"
+            >
+              <Check size={16} />
+              Deleted. Nothing was ever uploaded.
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

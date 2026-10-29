@@ -460,7 +460,7 @@ export default function ImageToPdf() {
   const totalBytes = images.reduce((sum, img) => sum + img.size, 0);
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={busy || progress ? undefined : startOver} what="your images">
       <Workbench
         panel={
           <Panel

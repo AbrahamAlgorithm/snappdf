@@ -19,6 +19,7 @@ export interface DocumentSignerRef {
   focusSignature: (id: string) => void;
   pickSignatureFile: () => void;
   openDrawPad: () => void;
+  clearDocument: () => void;
 }
 
 export interface DocumentSignerProps {
@@ -328,8 +329,24 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
     updateSignature(sigId, { rotation: ((((sig.rotation || 0) + deltaAngle) % 360) + 360) % 360 });
   };
 
+  // back to the empty picker, with nothing of the document or its signatures kept
+  const clearDocument = () => {
+    closePdf(docBytes);
+    if (shownPage.current) URL.revokeObjectURL(shownPage.current.url);
+    shownPage.current = null;
+    setDocBytes(null);
+    setDocName('');
+    setPageCount(0);
+    setCurrentPage(0);
+    setRenderedPageUrl(null);
+    setSignatures([]);
+    setSelectedSigId(null);
+    setZoomLevel(100);
+  };
+
   // no deps on purpose, so the side panel always acts on the latest signatures
   React.useImperativeHandle(ref, () => ({
+    clearDocument,
     updateSignature,
     removeSignature,
     duplicateSignature,

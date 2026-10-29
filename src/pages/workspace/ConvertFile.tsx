@@ -165,7 +165,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   }
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={converting ? undefined : reset} what="this file">
       <div className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">
         <div className="rounded-[28px] bg-card p-5 sm:p-8">
           {result ? (

@@ -88,7 +88,7 @@ export default function TextToPdf() {
   const words = hasText ? text.trim().split(/\s+/).length : 0;
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={hasText && !saving ? clear : undefined} what="your text">
       <Workbench
         panel={
           <Panel

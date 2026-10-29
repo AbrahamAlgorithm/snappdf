@@ -129,7 +129,7 @@ export default function SplitPdf() {
     'h-10 w-full min-w-0 rounded-[12px] border border-line bg-canvas px-3 text-[14px] tabular-nums outline-none transition-colors focus:border-ink';
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={saving ? undefined : reset} what="this PDF">
       <Workbench
         panel={
           <Panel

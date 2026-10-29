@@ -146,7 +146,7 @@ export default function WordToPdf() {
 
   const count = result.pages.length;
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} onDelete={reset} what="this document">
       <Workbench
         panel={
           <Panel
