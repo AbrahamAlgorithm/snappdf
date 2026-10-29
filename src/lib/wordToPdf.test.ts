@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import fontkit from '@pdf-lib/fontkit';
 import JSZip from 'jszip';
-import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, isOldWindowsPicture, plainBullets, readCounters, standIn, textDocx, textInset, type Family } from '@/lib/wordToPdf';
+import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, isOldWindowsPicture, plainBullets, readCounters, standIn, symbolChar, textDocx, textInset, type Family } from '@/lib/wordToPdf';
 
 describe('standIn', () => {
   it('matches word’s own fonts to the stand-in with the same widths', () => {
@@ -111,6 +111,19 @@ describe('shapes', () => {
     // the same start as an emf, without its signature
     emf.set([0, 0, 0, 0], 40);
     expect(isOldWindowsPicture(emf)).toBe(false);
+  });
+});
+
+describe('symbol font', () => {
+  it('reads word’s symbol font characters as unicode', () => {
+    expect(symbolChar(0xf0b0)).toBe('°');
+    expect(symbolChar(0xf0b1)).toBe('±');
+    expect(symbolChar(0xf061)).toBe('α');
+    expect(symbolChar(0x61)).toBe('α');
+    expect(symbolChar(0x57)).toBe('Ω');
+    expect(symbolChar(0xf0e5)).toBe('∑');
+    expect(symbolChar(0xf0f0)).toBeNull();
+    expect(symbolChar(0x2022)).toBeNull();
   });
 });
 
