@@ -3,6 +3,7 @@ import { Download, FileUp } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Button, NameDialog, Panel, Row, Spinner, ToolGuide, ToolShell, Workbench } from '@/components/toolkit';
 import { hasUnsupportedText, textToPdf } from '@/lib/convUtils';
+import { toolHref } from '@/lib/router';
 import { getTool } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
@@ -20,7 +21,7 @@ function nameFromText(text: string) {
 export default function TextToPdf() {
   const [text, setText] = useState('');
   const [openedFile, setOpenedFile] = useState<string | null>(null);
-  const [notText, setNotText] = useState(false);
+  const [wrongFile, setWrongFile] = useState<'word' | 'other' | null>(null);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -43,8 +44,8 @@ export default function TextToPdf() {
 
   const openFile = async (file?: File) => {
     if (!file) return;
-    setNotText(!isTextFile(file));
-    if (!isTextFile(file)) return;
+    if (!isTextFile(file)) return setWrongFile(/\.docx?$/i.test(file.name) ? 'word' : 'other');
+    setWrongFile(null);
     setText(await file.text());
     setOpenedFile(file.name);
   };
@@ -66,7 +67,7 @@ export default function TextToPdf() {
   const clear = () => {
     setText('');
     setOpenedFile(null);
-    setNotText(false);
+    setWrongFile(null);
     fieldRef.current?.focus();
   };
 
@@ -154,9 +155,19 @@ export default function TextToPdf() {
               }}
             />
           </div>
-          {notText && (
+          {wrongFile && (
             <p role="alert" className="border-b border-line bg-red-50 px-5 py-2.5 text-[13px] text-red-700">
-              That doesn’t look like a text file. Try a .txt file instead.
+              {wrongFile === 'word' ? (
+                <>
+                  That’s a Word document.{' '}
+                  <a href={toolHref('word-to-pdf')} className="font-medium underline underline-offset-2">
+                    Open Word to PDF
+                  </a>{' '}
+                  to turn it into a PDF that keeps its look.
+                </>
+              ) : (
+                'That doesn’t look like a text file. Try a .txt file instead.'
+              )}
             </p>
           )}
           <textarea

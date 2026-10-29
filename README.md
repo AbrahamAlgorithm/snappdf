@@ -19,6 +19,7 @@ snappdf is a free, open-source PDF toolkit that runs entirely in your browser. I
 - **Sign PDF**: Draw or upload a signature and place it anywhere on the page.
 - **Split PDF**: Pick the pages you want and save them as a new PDF.
 - **Text to PDF**: Type, paste or open a text file and save it as a tidy PDF.
+- **Word to PDF**: Turn a Word document (.docx) into a PDF that looks the same, and see every page before you download.
 - **CSV & JSON**: Convert to Excel, or JSON to CSV.
 - **Works Offline**: Installs like an app and keeps working with no internet.
 - **Privacy Focused**: Every file is processed on your device and never uploaded.

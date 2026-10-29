@@ -164,6 +164,31 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
       notUploaded('PDF'),
     ],
   },
+  'word-to-pdf': {
+    title: 'Free Word to PDF Converter: DOCX to PDF · snappdf',
+    description: 'Convert a Word document (.docx) to PDF for free and see every page before you download. The text stays selectable, and nothing is uploaded.',
+    howTo: 'How to convert Word to PDF',
+    steps: [
+      { title: 'Choose your document', text: 'Add a Word document that ends in .docx, from your phone or computer.' },
+      { title: 'Check every page', text: 'It’s turned into PDF pages straight away. Scroll through them, and tap any page to see it full size.' },
+      { title: 'Download the PDF', text: 'Name it and save it. The text stays real text and links still work.' },
+    ],
+    faqs: [
+      {
+        q: 'Will the PDF look like my Word document?',
+        a: 'Very close. Word’s common fonts like Calibri, Cambria, Arial and Times New Roman are swapped for free fonts with the same letter widths, so lines and pages break where they do in Word. The preview shows exactly what you’ll download.',
+      },
+      {
+        q: 'Can I convert an old .doc file?',
+        a: 'Not yet. Open it in Word or Google Docs, save it as .docx, then convert it here.',
+      },
+      {
+        q: 'Can I still select and copy the text?',
+        a: 'Yes. The text stays real text, so you can select it, search it, and job sites can read your CV.',
+      },
+      notUploaded('document'),
+    ],
+  },
   'csv-to-excel': {
     title: 'CSV to Excel Converter: CSV to XLSX, Free · snappdf',
     description: 'Convert a CSV file to an Excel spreadsheet (.xlsx) in seconds. Free, private and works offline, your data never leaves your device.',

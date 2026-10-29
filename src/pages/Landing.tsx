@@ -260,7 +260,7 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
   {
     q: 'Which file types are supported?',
-    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also merge, split and sign any PDF.',
+    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, Word (.docx) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also merge, split, sign and compress any PDF.',
   },
   {
     q: 'Can I contribute?',

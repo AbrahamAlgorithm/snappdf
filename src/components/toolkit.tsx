@@ -362,6 +362,7 @@ export function UploadCard({
   formats,
   busy,
   extra,
+  notice,
 }: {
   tool: Tool;
   dropzone: Pick<DropzoneState, 'getRootProps' | 'getInputProps' | 'isDragActive' | 'open'>;
@@ -371,6 +372,7 @@ export function UploadCard({
   formats: string;
   busy?: string | null;
   extra?: ReactNode; // another button next to the main one
+  notice?: ReactNode; // a problem with the last file, under the box
 }) {
   const { getRootProps, getInputProps, isDragActive, open } = dropzone;
   return (
@@ -412,6 +414,11 @@ export function UploadCard({
           </>
         )}
       </div>
+      {notice && (
+        <p role="alert" className="mt-4 rounded-[16px] bg-red-50 px-4 py-3 text-center text-[14px] leading-relaxed text-red-700">
+          {notice}
+        </p>
+      )}
       <PrivacyNote />
       <ToolGuide tool={tool} className="mt-20 sm:mt-28" />
     </div>

@@ -6,6 +6,7 @@ import SignPdf from '@/pages/workspace/SignPdf';
 import SplitPdf from '@/pages/workspace/SplitPdf';
 import TextToPdf from '@/pages/workspace/TextToPdf';
 import CompressPdf from '@/pages/workspace/CompressPdf';
+import WordToPdf from '@/pages/workspace/WordToPdf';
 
 export default function Workspace({ tool }: { tool: ToolId }) {
   switch (tool) {
@@ -21,6 +22,8 @@ export default function Workspace({ tool }: { tool: ToolId }) {
       return <TextToPdf />;
     case 'compress-pdf':
       return <CompressPdf />;
+    case 'word-to-pdf':
+      return <WordToPdf />;
     default:
       return <ConvertFile mode={tool} />;
   }

@@ -1,4 +1,4 @@
-import { Braces, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
+import { Braces, FileOutput, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
 export const GITHUB_REPO = 'AbrahamAlgorithm/snappdf';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
@@ -10,6 +10,7 @@ export type ToolId =
   | 'text-to-pdf'
   | 'compress-pdf'
   | 'pdf-to-word'
+  | 'word-to-pdf'
   | 'csv-to-excel'
   | 'json-to-excel'
   | 'json-to-csv';
@@ -82,6 +83,14 @@ export const TOOLS: Tool[] = [
     group: 'Convert',
     icon: FileType,
     color: '#7c3aed',
+  },
+  {
+    id: 'word-to-pdf',
+    name: 'Word to PDF',
+    description: 'Turn a Word document into a PDF that looks just like it, and see every page first.',
+    group: 'Convert',
+    icon: FileOutput,
+    color: '#185abd',
   },
   {
     id: 'csv-to-excel',
