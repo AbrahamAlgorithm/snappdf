@@ -61,10 +61,15 @@
 }
 
 @layer base {
-  html,
-  body {
-    /* no overscroll bounce, it shows white behind the dark footer */
+  /* pull to refresh is off only while a tool has files open (see work.ts) */
+  html.has-work,
+  html.has-work body {
     overscroll-behavior-y: none;
+  }
+
+  /* at the bottom, the bounce past the footer shows its dark colour instead of white (see SiteFooter) */
+  html.at-footer {
+    background-color: #141416;
   }
 
   /* landing page section links only, in the tools it turns the browser's keep-the-cursor-in-view scroll into a long glide */

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Logo, LogoMark } from '@/components/brand';
 import { GitHubStarButton } from '@/components/GitHubStarButton';
@@ -134,8 +134,24 @@ function FooterColumn({ title, links }: { title: string; links: { label: string;
 }
 
 export function SiteFooter() {
+  const ref = useRef<HTMLElement>(null);
+
+  // only once scrolled down to the footer, so pulling down at the top to refresh still shows the light page
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => root.classList.toggle('at-footer', window.scrollY > 0 && (ref.current?.getBoundingClientRect().top ?? Infinity) < window.innerHeight);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      root.classList.remove('at-footer');
+    };
+  }, []);
+
   return (
-    <footer className="theme-dark relative overflow-hidden bg-canvas pt-20">
+    <footer ref={ref} className="theme-dark relative overflow-hidden bg-canvas pt-20">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-12 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
         <div className="col-span-2 md:col-span-4 lg:col-span-1">
           <Logo />

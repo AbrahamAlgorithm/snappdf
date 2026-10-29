@@ -15,6 +15,8 @@ function update(next: ToolId[]) {
   inProgress = next;
   if (next.length) window.addEventListener('beforeunload', warnBeforeLeaving);
   else window.removeEventListener('beforeunload', warnBeforeLeaving);
+  // pull to refresh would throw the files away too, and iphones don't ask first (see index.css)
+  document.documentElement.classList.toggle('has-work', next.length > 0);
   listeners.forEach((listener) => listener());
 }
 
