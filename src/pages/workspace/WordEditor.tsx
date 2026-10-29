@@ -77,6 +77,9 @@ export default function WordEditor({
     scroll.scrollTop += target.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 12;
   }, [height, layout, start]);
 
+  // handles over pictures and tables stay the same size on screen
+  useEffect(() => layout.zoomed(), [layout, zoom]);
+
   // the page behind stays put
   useEffect(() => {
     const root = document.documentElement;

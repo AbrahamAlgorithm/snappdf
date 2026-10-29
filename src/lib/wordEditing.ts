@@ -260,7 +260,8 @@ export async function insertImage(range: Range, file: File) {
   const img = document.createElement('img');
   img.src = src;
   img.alt = '';
-  img.style.cssText = 'max-width:100%;max-height:640px;width:auto;height:auto;vertical-align:bottom';
+  // in the line with the text like google docs, not on a line of its own as the page's css would have it
+  img.style.cssText = 'display:inline-block;max-width:100%;max-height:640px;width:auto;height:auto;vertical-align:bottom';
   range.deleteContents();
   range.insertNode(img);
   const after = document.createRange();

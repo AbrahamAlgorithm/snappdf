@@ -24,6 +24,7 @@ import {
   type PDFPage,
   type RGB,
 } from 'pdf-lib';
+import { attachHandles } from '@/lib/wordHandles';
 
 // word to pdf, all on the device. docx-preview lays the document out as html pages, then each page is drawn into
 // the pdf from that layout: real text in the same font and place, plus the boxes, lines, pictures and links
@@ -565,6 +566,9 @@ const HOST_CSS = `
 .w2p.w2p-editing { position: relative; left: auto; pointer-events: auto; }
 .w2p-editing .docx-wrapper > section.docx { margin: 0 0 24px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 12px rgba(0,0,0,.08); }
 .w2p-editing section.docx > article { outline: none; }
+.w2p-editing [contenteditable] img { cursor: pointer; }
+.w2p-col-resize, .w2p-col-resize * { cursor: col-resize !important; }
+.w2p-row-resize, .w2p-row-resize * { cursor: row-resize !important; }
 .w2p-editing section.docx.w2p-over::after {
   content: 'Below this line moves to the next page'; position: absolute; left: 0; right: 0; top: var(--w2p-limit); z-index: 2147483647;
   border-top: 2px dashed #e5484d; padding: 2px 8px 0; text-align: right; font: 600 12px/1.4 system-ui, sans-serif; color: #e5484d; pointer-events: none;
@@ -581,6 +585,8 @@ export class WordLayout {
   private onEdit: (() => void) | null = null;
   private lastCaret: Range | null = null;
   private timer = 0;
+  // pictures and table lines that can be dragged, while editing
+  private handles: ReturnType<typeof attachHandles> | null = null;
 
   private constructor(
     private host: HTMLElement,
@@ -721,6 +727,7 @@ export class WordLayout {
     this.host.addEventListener('click', this.clickPage);
     document.addEventListener('selectionchange', this.rememberCaret);
     mount.append(this.host);
+    this.handles = attachHandles(this.host, this.changed);
     this.checkOverflow();
   }
 
@@ -780,6 +787,11 @@ export class WordLayout {
     return range;
   }
 
+  // the editor zoomed, so the handles over the pages need resizing
+  zoomed() {
+    this.handles?.refresh();
+  }
+
   // the toolbar changed the pages without typing
   touched() {
     this.changed();
@@ -832,6 +844,18 @@ export class WordLayout {
     return true;
   }
 
+  // moves a page, everything on it and all. a page no longer after the one its text flowed on from stops flowing,
+  // so later edits can't pull text across pages that aren't side by side anymore
+  movePage(from: number, to: number) {
+    const pages = this.pages;
+    const page = pages[from];
+    if (!page || !pages[to] || from === to) return;
+    const before = new Map(pages.map((p, i) => [p, pages[i - 1]]));
+    if (to > from) pages[to].after(page);
+    else pages[to].before(page);
+    this.pages.forEach((p, i, now) => before.get(p) !== now[i - 1] && p.removeAttribute('data-flow'));
+  }
+
   close() {
     this.cancelEditing();
     this.host.remove();
@@ -852,6 +876,8 @@ export class WordLayout {
   // takes the pages back off screen and stops listening
   private detach() {
     this.editing = false;
+    this.handles?.detach();
+    this.handles = null;
     this.host.removeEventListener('input', this.changed);
     this.host.removeEventListener('keydown', this.keyDown);
     this.host.removeEventListener('paste', this.paste);
@@ -903,6 +929,7 @@ export class WordLayout {
       syncMarkers(this.body, true);
       this.checkOverflow();
     }, 200);
+    this.handles?.refresh();
     this.onEdit?.();
   };
 
