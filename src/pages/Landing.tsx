@@ -198,7 +198,7 @@ function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="group mb-6 inline-flex max-w-full items-center gap-2.5 rounded-full border border-line bg-canvas py-1 pl-1 pr-3.5 text-[13px] font-medium text-ink/70 transition-colors hover:border-ink/20 hover:text-ink sm:mb-8 sm:text-[14px]"
+            className="group mb-3 inline-flex max-w-full items-center gap-2.5 rounded-full border border-line bg-canvas py-1 pl-1 pr-3.5 text-[13px] font-medium text-ink/70 transition-colors hover:border-ink/20 hover:text-ink sm:mb-4 sm:text-[14px]"
           >
             <span className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[12px] font-semibold leading-none text-canvas">New</span>
             <span className="truncate">{WHATS_NEW.text}</span>
