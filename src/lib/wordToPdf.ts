@@ -185,8 +185,105 @@ const fieldMark = (instruction: string) => {
   return name === 'PAGE' ? PAGE : name === 'NUMPAGES' || name === 'SECTIONPAGES' ? PAGES_TOTAL : null;
 };
 
+const V = 'urn:schemas-microsoft-com:vml';
+const W10 = 'urn:schemas-microsoft-com:office:word';
+const MC = 'http://schemas.openxmlformats.org/markup-compatibility/2006';
+const DRAWING = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+
+const isOff = (value: string | null | undefined) => !!value && /^(f|false|0|off)$/i.test(value.trim());
+
+// a vml colour like "#1f4e79", "black" or "windowText [64]" as a css colour
+const vmlColor = (value: string | null, fallback: string) => {
+  const color = value?.trim().split(/\s+/)[0] ?? '';
+  return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(color) || (/^[a-z]+$/i.test(color) && CSS.supports('color', color)) ? color : fallback;
+};
+
+const POINTS: Record<string, number> = { pt: 1, in: 72, mm: 72 / 25.4, cm: 72 / 2.54, px: 0.75, pc: 12 };
+
+// a text box's inset like "0,0,0,0" or "5.76pt,2.88pt" as left, top, right and bottom in points. a side that's
+// left out keeps word's default of 0.1in across and 0.05in down, and a bare number is in emu
+export function textInset(value: string | null) {
+  const sides = (value ?? '').split(',');
+  return [7.2, 3.6, 7.2, 3.6].map((fallback, i) => {
+    const m = /^\s*(-?\d*\.?\d+)\s*(pt|in|mm|cm|px|pc)?\s*$/i.exec(sides[i] ?? '');
+    return m ? parseFloat(m[1]) * (m[2] ? POINTS[m[2].toLowerCase()] : 1 / 12700) : fallback;
+  });
+}
+
+// docx-preview reads a shape's outline only from a <v:stroke> inside it, leaves a shape with no fill colour black,
+// can't show words inside a box or an oval, and drops rounded rectangles. word writes fills and outlines as
+// attributes with defaults from the shape's type, so this rewrites shapes the way docx-preview reads them
+function vmlShapes(dom: Document) {
+  const vml = (tag: string) => [...dom.getElementsByTagNameNS(V, tag)];
+  const child = (el: Element, tag: string) => [...el.children].find((c) => c.localName === tag && c.namespaceURI === V);
+  const rename = (el: Element, tag: string) => {
+    const next = dom.createElementNS(V, `v:${tag}`);
+    for (const a of [...el.attributes]) next.setAttributeNS(a.namespaceURI, a.name, a.value);
+    next.append(...el.childNodes);
+    el.replaceWith(next);
+    return next;
+  };
+  const types = new Map(vml('shapetype').map((t) => [t.getAttribute('id'), t]));
+  const shapes = ['shape', 'rect', 'roundrect', 'oval', 'line'].flatMap(vml);
+  for (const shape of shapes) {
+    const type = types.get(shape.getAttribute('type')?.replace(/^#/, '') ?? '');
+    const pick = (name: string) => shape.getAttribute(name) ?? type?.getAttribute(name) ?? null;
+    const picture = shape.getElementsByTagNameNS(V, 'imagedata').length > 0;
+    // word moves the text out of the way of a shape it wraps around. docx-preview can't, so the text goes over it
+    const wrap = [...shape.children].find((c) => c.localName === 'wrap' && c.namespaceURI === W10)?.getAttribute('type');
+    const style = shape.getAttribute('style') ?? '';
+    if (wrap && wrap !== 'none' && !/z-index:\s*-/i.test(style)) shape.setAttribute('style', `${style.replace(/z-index:[^;]*/gi, '')};z-index:-1`);
+    let stroke = child(shape, 'stroke');
+    // pictures and equations have no outline unless one's asked for
+    if (isOff(pick('stroked')) || isOff(stroke?.getAttribute('on')) || (picture && !shape.hasAttribute('stroked') && !shape.hasAttribute('strokecolor'))) {
+      stroke?.remove();
+      stroke = undefined;
+    } else {
+      stroke ??= shape.insertBefore(dom.createElementNS(V, 'v:stroke'), shape.firstChild);
+      stroke.setAttribute('color', vmlColor(stroke.getAttribute('color') || pick('strokecolor'), '#000000'));
+      stroke.setAttribute('weight', stroke.getAttribute('weight') || pick('strokeweight') || '0.75pt');
+    }
+    if (picture || shape.localName === 'line') continue;
+    const fill = isOff(pick('filled')) || isOff(child(shape, 'fill')?.getAttribute('on')) ? 'none' : vmlColor(pick('fillcolor'), '#ffffff');
+
+    const box = child(shape, 'textbox');
+    if (!box) {
+      shape.setAttribute('fillcolor', fill);
+      if (shape.localName === 'roundrect') rename(shape, 'rect');
+      continue;
+    }
+    // svg can't put words inside a box or an oval, so the box goes under the words inside a plain shape
+    const outline = dom.createElementNS(V, shape.localName === 'oval' ? 'v:oval' : 'v:rect');
+    outline.setAttribute('fillcolor', fill);
+    if (stroke) outline.append(stroke);
+    const outer = shape.localName === 'shape' ? shape : rename(shape, 'shape');
+    outer.removeAttribute('fillcolor');
+    if (fill !== 'none' || stroke) outer.prepend(outline);
+    // word keeps the words a little in from the edges, fitShapes moves them in
+    outer.setAttribute('style', `${outer.getAttribute('style') ?? ''};--w2p-inset:${textInset(box.getAttribute('inset')).join(' ')}`);
+  }
+  return shapes.length > 0;
+}
+
+// what docx-preview can't draw at all: charts, smartart, grouped shapes, and shapes saved without the older copy
+function countUnsupported(dom: Document, found: Unsupported) {
+  const inChoice = (el: Element) => {
+    for (let p = el.parentElement; p; p = p.parentElement) if (p.localName === 'Choice' && p.namespaceURI === MC) return true;
+    return false;
+  };
+  for (const data of dom.getElementsByTagNameNS(DRAWING, 'graphicData')) {
+    if (inChoice(data)) continue;
+    const uri = data.getAttribute('uri') ?? '';
+    if (/\/(chart|diagram)$|chartex/i.test(uri)) found.charts++;
+    else if (/wordprocessing(Shape|Group|Canvas)/i.test(uri)) found.shapes++;
+  }
+  found.shapes += dom.getElementsByTagNameNS(V, 'group').length;
+}
+
+export type Unsupported = { charts: number; shapes: number };
+
 // docx-preview skips fields, so page numbers would be missing or stuck on the number word last saved
-export function markXml(xml: string) {
+export function markXml(xml: string, found: Unsupported = { charts: 0, shapes: 0 }) {
   const dom = new DOMParser().parseFromString(xml, 'application/xml');
   const el = (parent: Element | Document, tag: string) => parent.getElementsByTagNameNS(W, tag);
   const markRun = (before: Element, mark: string, style?: Element) => {
@@ -272,22 +369,58 @@ export function markXml(xml: string) {
     after.textContent = (midway ? SOFT_SPLIT : SOFT_PAGE) + (after.textContent ?? '');
     changed = true;
   }
+
+  if (vmlShapes(dom)) changed = true;
+  countUnsupported(dom, found);
   return changed ? new XMLSerializer().serializeToString(dom) : xml;
 }
 
-async function prepare(file: File): Promise<Blob> {
+async function prepare(file: File) {
   const zip = await JSZip.loadAsync(file);
+  const found: Unsupported = { charts: 0, shapes: 0 };
   let changed = false;
   for (const name of Object.keys(zip.files)) {
     if (!/^word\/(document|header\d*|footer\d*)\.xml$/.test(name)) continue;
     const xml = await zip.file(name)!.async('string');
-    const marked = markXml(xml);
+    const marked = markXml(xml, found);
     if (marked !== xml) {
       zip.file(name, marked);
       changed = true;
     }
   }
-  return changed ? zip.generateAsync({ type: 'blob' }) : file;
+  return { blob: changed ? await zip.generateAsync({ type: 'blob' }) : file, found };
+}
+
+// docx-preview draws word's shapes as svg and sizes them a frame later, so that's done here before the pages are
+// measured. a text box's words also move in from its edges by the inset vmlShapes noted
+function fitShapes(body: HTMLElement) {
+  for (const svg of body.querySelectorAll<SVGSVGElement>('svg')) {
+    const shape = svg.firstElementChild as SVGGraphicsElement | null;
+    if (!shape) continue;
+    if (!svg.getAttribute('width')) {
+      const box = shape.getBBox();
+      svg.setAttribute('width', `${Math.ceil(box.x + box.width)}`);
+      svg.setAttribute('height', `${Math.ceil(box.y + box.height)}`);
+    }
+    const inset = svg.style.getPropertyValue('--w2p-inset').trim().split(/\s+/).map((pt) => (parseFloat(pt) * 4) / 3);
+    if (inset.length !== 4 || inset.some(isNaN)) continue;
+    const [left, top, right, bottom] = inset;
+    const { width, height } = svg.getBoundingClientRect();
+    for (const words of [...shape.children].filter((c) => c.localName === 'foreignObject')) {
+      words.setAttribute('x', `${left}`);
+      words.setAttribute('y', `${top}`);
+      words.setAttribute('width', `${Math.max(0, width - left - right)}`);
+      words.setAttribute('height', `${Math.max(0, height - top - bottom)}`);
+    }
+  }
+}
+
+// emf and wmf, word's old windows picture formats that browsers can't show
+export function isOldWindowsPicture(bytes: Uint8Array) {
+  const emf = bytes.length > 44 && bytes[0] === 1 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0 && bytes[40] === 0x20 && bytes[41] === 0x45 && bytes[42] === 0x4d && bytes[43] === 0x46;
+  const placeable = bytes[0] === 0xd7 && bytes[1] === 0xcd && bytes[2] === 0xc6 && bytes[3] === 0x9a;
+  const wmf = (bytes[0] === 1 || bytes[0] === 2) && bytes[1] === 0 && bytes[2] === 9 && bytes[3] === 0;
+  return emf || placeable || wmf;
 }
 
 const textNodes = (root: Node, test: RegExp) => {
@@ -359,6 +492,10 @@ export type WordPdf = {
   missingText: boolean;
   // pictures or shapes that couldn't go in
   skipped: number;
+  // emf and wmf pictures, which browsers can't show
+  oldPictures: number;
+  // charts and smartart, which docx-preview doesn't draw
+  charts: number;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -387,14 +524,15 @@ const metricsOf = (face: Face) => {
 const HOST_CSS = `
 .w2p { position: fixed; left: -100000px; top: 0; pointer-events: none; font-family: Calibri; }
 .w2p .docx-wrapper { display: block; padding: 0; background: none; }
-.w2p .docx-wrapper > section.docx { margin: 0 0 40px; box-shadow: none; }
+.w2p .docx-wrapper > section.docx { margin: 0 0 40px; box-shadow: none; isolation: isolate; }
+.w2p svg, .w2p foreignObject { overflow: visible; }
 .w2p * { hyphens: manual !important; font-kerning: none !important; font-variant-ligatures: none !important; }
 .w2p .w2p-marked::before { position: absolute !important; visibility: hidden !important; }
 .w2p.w2p-editing { position: relative; left: auto; pointer-events: auto; }
 .w2p-editing .docx-wrapper > section.docx { margin: 0 0 24px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 12px rgba(0,0,0,.08); }
 .w2p-editing section.docx > article { outline: none; }
 .w2p-editing section.docx.w2p-over::after {
-  content: 'Below this line moves to the next page'; position: absolute; left: 0; right: 0; top: var(--w2p-limit); z-index: 2;
+  content: 'Below this line moves to the next page'; position: absolute; left: 0; right: 0; top: var(--w2p-limit); z-index: 2147483647;
   border-top: 2px dashed #e5484d; padding: 2px 8px 0; text-align: right; font: 600 12px/1.4 system-ui, sans-serif; color: #e5484d; pointer-events: none;
 }
 `;
@@ -416,6 +554,7 @@ export class WordLayout {
     private docFonts: string[],
     // the size most of the text is, in points
     readonly normalSize: number,
+    private unsupported: Unsupported,
   ) {}
 
   static async open(file: File, onProgress: (message: string) => void = () => {}) {
@@ -444,7 +583,8 @@ export class WordLayout {
         renderChanges: false,
         renderComments: false,
       };
-      const doc = await parseAsync(await prepare(file), options);
+      const { blob, found } = await prepare(file);
+      const doc = await parseAsync(blob, options);
       const fontTable: { name: string; family?: string }[] = doc.fontTablePart?.fonts ?? [];
       const named = new Set<string>();
       await addFonts([...WORD_DEFAULTS.map((name) => ({ name })), ...fontTable], named, faces);
@@ -462,6 +602,7 @@ export class WordLayout {
       }
       await addFonts([...extra].map((name) => ({ name })), named, faces);
 
+      fitShapes(body);
       findMarks(body);
       syncMarkers(body);
       // docx-preview measures tab stops half a second after drawing
@@ -469,7 +610,7 @@ export class WordLayout {
       paginate(body);
       const title = doc.corePropsPart?.props?.title || file.name.replace(/\.docx$/i, '');
       const docFonts = [...fontTable.map((f) => f.name), ...extra].filter((name) => name && !isSymbolFont(name));
-      return new WordLayout(host, body, faces, title, docFonts, commonSize(body));
+      return new WordLayout(host, body, faces, title, docFonts, commonSize(body), found);
     } catch (err) {
       host.remove();
       for (const face of faces) document.fonts.delete(face);
@@ -505,7 +646,14 @@ export class WordLayout {
     }
 
     onProgress('Saving your PDF…');
-    return { bytes: await pdf.save(), pages, missingText: painter.missing > 0, skipped: painter.skipped };
+    return {
+      bytes: await pdf.save(),
+      pages,
+      missingText: painter.missing > 0,
+      skipped: painter.skipped + this.unsupported.shapes,
+      oldPictures: painter.old,
+      charts: this.unsupported.charts,
+    };
   }
 
   // edits happen on the laid out pages themselves, moved into view inside mount. onEdit hears about every change
@@ -979,8 +1127,9 @@ const isBlock = (cs: CSSStyleDeclaration) => !cs.display.startsWith('inline') ||
 class Painter {
   missing = 0;
   skipped = 0;
+  old = 0;
   private fonts = new Map<string, Promise<PDFFont>>();
-  private images = new Map<string, Promise<PDFImage | null>>();
+  private images = new Map<string, Promise<Embedded>>();
   private fontKeys = new Map<PDFFont, PDFName>();
   private out!: PDFPage;
   private left = 0;
@@ -999,25 +1148,36 @@ class Painter {
     this.left = box.left;
     this.bottom = box.top + height;
 
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        if (node.nodeType !== Node.ELEMENT_NODE) return NodeFilter.FILTER_ACCEPT;
-        // shapes aren't drawn yet, and their insides aren't page text
-        if (node instanceof SVGElement) {
-          if (node.getBoundingClientRect().width > 0) this.skipped++;
-          return NodeFilter.FILTER_REJECT;
-        }
-        const cs = getComputedStyle(node as Element);
-        return cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-      },
-    });
+    // like on screen, shapes word puts behind the text go under it and the ones floating in front go over it
+    const depth = (svg: Element) => parseInt(getComputedStyle(svg).zIndex) || 0;
+    const floating = [...el.querySelectorAll('svg')].filter((svg) => getComputedStyle(svg).position !== 'static').sort((a, b) => depth(a) - depth(b));
+    const apart = new Set<Element>(floating);
     await this.element(el, el);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node.nodeType === Node.TEXT_NODE) await this.text(node as Text);
-      else await this.element(node as HTMLElement, el);
-    }
+    for (const svg of floating.filter((s) => depth(s) < 0)) await this.walk(svg, el, apart);
+    await this.walk(el, el, apart);
+    for (const svg of floating.filter((s) => depth(s) >= 0)) await this.walk(svg, el, apart);
     this.links(el);
     return { width: box.width * PT, height: height * PT };
+  }
+
+  // draws what's inside root in order, leaving out what's hidden and the shapes in apart, which are drawn on their own
+  private async walk(root: Element, page: HTMLElement, apart: Set<Element>) {
+    const hidden = (el: Element) => {
+      const cs = getComputedStyle(el);
+      return cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0';
+    };
+    if (root !== page && (hidden(root) || !root.getClientRects().length)) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.nodeType === Node.ELEMENT_NODE && (apart.has(node as Element) || hidden(node as Element)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    if (root instanceof SVGElement) await this.shape(root);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) await this.text(node as Text);
+      // a text box's words are html inside the svg, the walk reaches them like any other text
+      else if (node instanceof SVGElement) await this.shape(node);
+      else await this.element(node as HTMLElement, page);
+    }
   }
 
   private async element(el: HTMLElement, page: HTMLElement | null) {
@@ -1034,6 +1194,46 @@ class Painter {
     }
     if (!inline) this.borders(el, cs);
     if (el instanceof HTMLImageElement) await this.image(el);
+  }
+
+  // word's shapes, drawn as svg by docx-preview: boxes, ovals, lines and pictures. a text box is a group holding its
+  // box and its words, and the walk reaches the words like any other text
+  private async shape(el: SVGElement) {
+    const tag = el.tagName.toLowerCase();
+    const r = el.getBoundingClientRect();
+    if (tag === 'image') {
+      const href = (el as SVGImageElement).href.baseVal || el.getAttribute('href') || el.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      return href ? this.picture(href, r) : undefined;
+    }
+    if (tag === 'g') {
+      // a shape word draws from its own outline, which docx-preview leaves out. a text box's group has no fill or outline
+      const fill = el.getAttribute('fill');
+      if ((fill && fill !== 'none') || el.hasAttribute('stroke')) this.skipped++;
+      return;
+    }
+    if (!['rect', 'ellipse', 'circle', 'line'].includes(tag)) return;
+    const cs = getComputedStyle(el);
+    const fill = parseColor(cs.fill);
+    const stroke = parseColor(cs.stroke);
+    const width = parseFloat(cs.strokeWidth) || 0;
+    const filled = !!fill && fill.alpha > 0 && parseFloat(cs.fillOpacity || '1') > 0;
+    const stroked = !!stroke && stroke.alpha > 0 && width > 0;
+    if ((!filled && !stroked) || (r.width <= 0 && r.height <= 0)) return;
+
+    const outline = stroked ? { borderColor: stroke!.color, borderWidth: width * PT, borderOpacity: stroke!.alpha } : {};
+    const paint = filled ? { color: fill!.color, opacity: fill!.alpha } : {};
+    if (tag === 'line') {
+      const line = el as SVGLineElement;
+      const ctm = line.getScreenCTM();
+      if (!ctm || !stroked) return;
+      const a = new DOMPoint(line.x1.baseVal.value, line.y1.baseVal.value).matrixTransform(ctm);
+      const b = new DOMPoint(line.x2.baseVal.value, line.y2.baseVal.value).matrixTransform(ctm);
+      this.out.drawLine({ start: { x: this.x(a.x), y: this.y(a.y) }, end: { x: this.x(b.x), y: this.y(b.y) }, thickness: width * PT, color: stroke!.color, opacity: stroke!.alpha });
+    } else if (tag === 'rect') {
+      this.out.drawRectangle({ x: this.x(r.left), y: this.y(r.bottom), width: r.width * PT, height: r.height * PT, ...paint, ...outline });
+    } else {
+      this.out.drawEllipse({ x: this.x(r.left + r.width / 2), y: this.y(r.top + r.height / 2), xScale: (r.width / 2) * PT, yScale: (r.height / 2) * PT, ...paint, ...outline });
+    }
   }
 
   private borders(el: HTMLElement, cs: CSSStyleDeclaration) {
@@ -1065,19 +1265,20 @@ class Painter {
   }
 
   private async image(img: HTMLImageElement) {
-    const r = img.getBoundingClientRect();
-    if (r.width <= 0 || r.height <= 0 || !img.src) return;
-    let embedded = this.images.get(img.src);
+    if (img.src) await this.picture(img.src, img.getBoundingClientRect());
+  }
+
+  private async picture(src: string, r: DOMRect) {
+    if (r.width <= 0 || r.height <= 0) return;
+    let embedded = this.images.get(src);
     if (!embedded) {
-      embedded = embedImage(this.pdf, img);
-      this.images.set(img.src, embedded);
+      embedded = embedImage(this.pdf, src);
+      this.images.set(src, embedded);
     }
     const image = await embedded;
-    if (!image) {
-      this.skipped++;
-      return;
-    }
-    this.out.drawImage(image, { x: this.x(r.left), y: this.y(r.bottom), width: r.width * PT, height: r.height * PT });
+    if (image === 'old') this.old++;
+    else if (!image) this.skipped++;
+    else this.out.drawImage(image, { x: this.x(r.left), y: this.y(r.bottom), width: r.width * PT, height: r.height * PT });
   }
 
   private async text(node: Text) {
@@ -1236,16 +1437,22 @@ class Painter {
 
 const sameFace = (a: Face, b: Face) => a.family === b.family && a.style === b.style && a.skew === b.skew && a.fakeBold === b.fakeBold;
 
+// a picture in the pdf, 'old' for emf and wmf pictures, or null when it can't go in
+type Embedded = PDFImage | 'old' | null;
+
 // png and jpeg go in as they are, anything else the browser can show is redrawn as png
-async function embedImage(pdf: PDFDocument, img: HTMLImageElement): Promise<PDFImage | null> {
+async function embedImage(pdf: PDFDocument, src: string): Promise<Embedded> {
   try {
-    const bytes = new Uint8Array(await (await fetch(img.src)).arrayBuffer());
+    const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
     if (bytes[0] === 0x89 && bytes[1] === 0x50) return await pdf.embedPng(bytes);
     if (bytes[0] === 0xff && bytes[1] === 0xd8) return await pdf.embedJpg(bytes);
+    if (isOldWindowsPicture(bytes)) return 'old';
   } catch {
     // falls through to redrawing it
   }
   try {
+    const img = new Image();
+    img.src = src;
     await img.decode();
     const scale = Math.min(1, 3000 / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement('canvas');
