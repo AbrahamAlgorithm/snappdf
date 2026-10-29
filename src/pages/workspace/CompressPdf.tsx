@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { AlertTriangle, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { PDFDocument } from 'pdf-lib';
-import { Button, FileRow, formatSize, NameDialog, Panel, Spinner, ToolShell, UploadCard, Workbench } from '@/components/toolkit';
+import { Button, formatSize, NameDialog, Panel, Spinner, ToolShell, UploadCard, useDocName, Workbench } from '@/components/toolkit';
 import { buildPdfFromJpegs, ATTEMPTS, chooseSmaller, fitToTarget, lightCompress, MB, savedPercent, type Attempt } from '@/lib/compressPdf';
 import { closePdf } from '@/lib/pdfjs';
 import { renderPageImage } from '@/lib/pdfUtils';
@@ -115,7 +115,7 @@ export default function CompressPdf() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const doc = useDocName(file?.name.replace(/\.pdf$/i, '') ?? 'document');
   useReportWork(tool.id, !!file);
 
   const onDrop = useCallback((files: File[]) => {
@@ -168,6 +168,7 @@ export default function CompressPdf() {
     setFile(null);
     setResult(null);
     setError(null);
+    doc.forget();
   };
 
   const save = (fileName: string) => {
@@ -194,7 +195,7 @@ export default function CompressPdf() {
     'h-10 w-full min-w-0 rounded-[12px] border border-line bg-canvas px-3 text-[14px] tabular-nums outline-none transition-colors focus:border-ink';
 
   return (
-    <ToolShell tool={tool} onDelete={busy ? undefined : reset} what="this PDF">
+    <ToolShell tool={tool} doc={{ name: doc.name, onRename: doc.rename, onChange: busy ? undefined : reset }} onDelete={busy ? undefined : reset} what="this PDF">
       <Workbench
         panel={
           <Panel
@@ -281,10 +282,16 @@ export default function CompressPdf() {
           </Panel>
         }
       >
-        <FileRow name={file.name} meta={formatSize(file.size)} onChange={reset} />
+        {!busy && !result && !error && (
+          <div className="rounded-[24px] bg-card p-6">
+            <p className="text-[13px] text-ink/50">Size now</p>
+            <p className="mt-0.5 text-[20px] font-medium tabular-nums">{formatSize(file.size)}</p>
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/60">Choose how small to make it, then tap Compress PDF.</p>
+          </div>
+        )}
 
         {busy && progress && (
-          <div role="status" className="mt-5 rounded-[24px] bg-card p-6">
+          <div role="status" className="mt-5 rounded-[24px] bg-card p-6 first:mt-0">
             <p className="text-[15px] font-medium">
               Compressing · Page {progress.page} of {progress.total}
             </p>
@@ -295,16 +302,16 @@ export default function CompressPdf() {
         )}
 
         {busy && !progress && (
-          <div role="status" className="mt-5 flex items-center gap-3 rounded-[24px] bg-card p-6 text-[15px] text-ink/60">
+          <div role="status" className="mt-5 flex items-center gap-3 rounded-[24px] bg-card p-6 text-[15px] text-ink/60 first:mt-0">
             <Spinner className="size-5" />
             Compressing…
           </div>
         )}
 
-        {error && <p className="mt-5 rounded-[24px] bg-card p-6 text-[15px] text-ink/70">{error}</p>}
+        {error && <p className="mt-5 rounded-[24px] bg-card p-6 text-[15px] text-ink/70 first:mt-0">{error}</p>}
 
         {result && !busy && (
-          <div className="mt-5 rounded-[24px] bg-card p-6">
+          <div className="mt-5 rounded-[24px] bg-card p-6 first:mt-0">
             <div className="flex items-center gap-6 tabular-nums">
               <div>
                 <p className="text-[13px] text-ink/50">Before</p>
@@ -330,7 +337,7 @@ export default function CompressPdf() {
             )}
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <Button variant="primary" onClick={() => setSuggestedName(`compressed-${file.name.replace(/\.pdf$/i, '')}`)}>
+              <Button variant="primary" onClick={() => doc.download(save, `compressed-${file.name.replace(/\.pdf$/i, '')}`)}>
                 <Download size={18} />
                 {smaller ? 'Download compressed PDF' : 'Download original'}
               </Button>
@@ -344,14 +351,7 @@ export default function CompressPdf() {
         )}
       </Workbench>
 
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          save(fileName);
-        }}
-      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

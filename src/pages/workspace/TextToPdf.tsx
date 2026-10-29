@@ -1,12 +1,13 @@
-import { useLayoutEffect, useRef, useState, type DragEvent } from 'react';
-import { Download, FileUp } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { FileUp } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { Button, NameDialog, Panel, Row, Spinner, ToolGuide, ToolShell, Workbench } from '@/components/toolkit';
-import { hasUnsupportedText, textToPdf } from '@/lib/convUtils';
-import { toolHref } from '@/lib/router';
+import { NameDialog, Row, Spinner, ToolShell, useDocName } from '@/components/toolkit';
+import { APP_HREF } from '@/lib/router';
 import { getTool } from '@/lib/site';
-import { cn } from '@/lib/utils';
 import { useReportWork } from '@/lib/work';
+import { hasKeyboard, NEW_PAGE_KEYS } from '@/lib/wordEditing';
+import type { WordLayout, WordPdf } from '@/lib/wordToPdf';
+import WordPages from '@/pages/workspace/WordPages';
 
 const tool = getTool('text-to-pdf');
 
@@ -15,187 +16,128 @@ const isTextFile = (file: File) => file.type.startsWith('text/') || /\.(txt|md)$
 // the first line makes a good default file name, like google docs does
 function nameFromText(text: string) {
   const firstLine = text.trim().split('\n')[0];
-  return firstLine.replace(/[\\/:*?"<>|]+/g, '').trim().slice(0, 40).trim() || 'document';
+  return firstLine.replace(/[\\/:*?"<>|]+/g, '').trim().slice(0, 40).trim() || 'Untitled document';
 }
 
+// a blank page in the word editor, so typing here works like google docs, new pages and all
 export default function TextToPdf() {
+  const [layout, setLayout] = useState<WordLayout | null>(null);
+  // a new layout gets fresh pages and a fresh editor
+  const [version, setVersion] = useState(0);
+  const [result, setResult] = useState<WordPdf | null>(null);
+  const [editing, setEditing] = useState<number | null>(0);
+  // what's on the pages, kept up to date while typing
   const [text, setText] = useState('');
   const [openedFile, setOpenedFile] = useState<string | null>(null);
-  const [wrongFile, setWrongFile] = useState<'word' | 'other' | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
-  const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const hasText = text.trim().length > 0;
-  useReportWork(tool.id, hasText);
+  const [problem, setProblem] = useState<string | null>(null);
+  const current = useRef<WordLayout | null>(null);
+  const job = useRef(0);
+  const timer = useRef(0);
+  const picker = useRef<HTMLInputElement>(null);
+  const doc = useDocName(openedFile?.replace(/\.[^.]+$/, '') || nameFromText(text));
+  const empty = !text.trim();
+  useReportWork(tool.id, !empty);
 
-  // grow the box with the text, so the page scrolls instead of the box
-  useLayoutEffect(() => {
-    const field = fieldRef.current;
-    if (!field) return;
-    // measuring shrinks the page for a moment, which knocks the scroll away from where people are typing
-    const top = window.scrollY;
-    field.style.height = 'auto';
-    field.style.height = `${field.scrollHeight}px`;
-    window.scrollTo({ top, behavior: 'instant' });
-  }, [text]);
-
-  const openFile = async (file?: File) => {
-    if (!file) return;
-    if (!isTextFile(file)) return setWrongFile(/\.docx?$/i.test(file.name) ? 'word' : 'other');
-    setWrongFile(null);
-    setText(await file.text());
-    setOpenedFile(file.name);
-  };
-
-  const onDragOver = (e: DragEvent) => {
-    if (!e.dataTransfer.types.includes('Files')) return;
-    e.preventDefault();
-    setDragging(true);
-  };
-
-  // dropped files open here, dropped text lands in the box like normal
-  const onDrop = (e: DragEvent) => {
-    setDragging(false);
-    if (!e.dataTransfer.files.length) return;
-    e.preventDefault();
-    openFile(e.dataTransfer.files[0]);
-  };
-
-  const clear = () => {
-    setText('');
-    setOpenedFile(null);
-    setWrongFile(null);
-    fieldRef.current?.focus();
-  };
-
-  const create = async (fileName: string) => {
-    setSaving(true);
-    setFailed(false);
+  // lays out a document holding words, a blank one to start with
+  const open = async (words: string, fileName: string | null = null) => {
+    const id = ++job.current;
+    setProblem(null);
     try {
-      const bytes = await textToPdf(text);
-      saveAs(new Blob([bytes], { type: 'application/pdf' }), fileName);
+      // the layout engine and fonts only load once someone uses this tool
+      const { WordLayout, textDocx } = await import('@/lib/wordToPdf');
+      const next = await WordLayout.open(await textDocx(words, 'Untitled document'));
+      if (id !== job.current) return next.close();
+      current.current?.close();
+      current.current = next;
+      doc.forget();
+      setLayout(next);
+      setVersion((v) => v + 1);
+      setResult(null);
+      setText(words);
+      setOpenedFile(fileName);
+      setEditing(0);
     } catch (err) {
+      if (id !== job.current) return;
       console.error('Text to PDF error', err);
-      setFailed(true);
-    } finally {
-      setSaving(false);
+      setProblem('We couldn’t set up the page. Refresh and try again.');
     }
   };
 
-  const words = hasText ? text.trim().split(/\s+/).length : 0;
+  // once, the tool stays open while hidden and runs this again when it's shown
+  useEffect(() => {
+    if (job.current === 0) open('');
+  }, []);
 
-  return (
-    <ToolShell tool={tool} onDelete={hasText && !saving ? clear : undefined} what="your text">
-      <Workbench
-        panel={
-          <Panel
-            title="Your PDF"
-            footer={
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={!hasText || saving}
-                onClick={() => setSuggestedName(openedFile?.replace(/\.[^.]+$/, '') || nameFromText(text))}
-              >
-                {saving ? <Spinner className="size-[18px]" /> : <Download size={18} />}
-                Create PDF
-              </Button>
-            }
-          >
-            <dl className="mt-5 space-y-2.5 text-[14px]">
-              <Row label="Words" value={words.toLocaleString()} />
-              <Row label="Characters" value={text.length.toLocaleString()} />
-              <Row label="Page size" value="A4, portrait" />
-            </dl>
-            {hasUnsupportedText(text) && (
-              <p className="mt-5 rounded-[16px] bg-subtle px-4 py-3 text-[13px] leading-relaxed text-ink/60">
-                Emoji and some symbols or alphabets can’t go in the PDF yet, so they’ll be left out.
-              </p>
-            )}
-            {failed && (
-              <p role="alert" className="mt-5 rounded-[16px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
-                We couldn’t create your PDF. Please try again.
-              </p>
-            )}
-          </Panel>
-        }
-      >
-        <div
-          onDragOver={onDragOver}
-          onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDragging(false)}
-          onDrop={onDrop}
-          className={cn(
-            'relative overflow-hidden rounded-[24px] bg-card ring-1 transition-shadow',
-            dragging ? 'ring-2 ring-ink' : 'ring-transparent focus-within:ring-ink/15',
-          )}
-        >
-          <div className="flex items-center gap-1 border-b border-line py-2 pl-5 pr-2">
-            <p className="min-w-0 flex-1 truncate text-[14px] font-medium">{openedFile ?? 'Your text'}</p>
-            {hasText && (
-              <Button variant="ghost" size="sm" onClick={clear}>
-                Clear
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <FileUp size={16} />
-              Open file
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,text/plain,text/markdown"
-              className="hidden"
-              onChange={(e) => {
-                openFile(e.target.files?.[0]);
-                e.target.value = '';
-              }}
-            />
-          </div>
-          {wrongFile && (
-            <p role="alert" className="border-b border-line bg-red-50 px-5 py-2.5 text-[13px] text-red-700">
-              {wrongFile === 'word' ? (
-                <>
-                  That’s a Word document.{' '}
-                  <a href={toolHref('word-to-pdf')} className="font-medium underline underline-offset-2">
-                    Open Word to PDF
-                  </a>{' '}
-                  to turn it into a PDF that keeps its look.
-                </>
-              ) : (
-                'That doesn’t look like a text file. Try a .txt file instead.'
-              )}
-            </p>
-          )}
-          <textarea
-            ref={fieldRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            aria-label="Your text"
-            placeholder="Start typing or paste your text here. You can also drop in a .txt file."
-            autoFocus={window.matchMedia('(pointer: fine)').matches}
-            className="block min-h-[55vh] w-full resize-none bg-transparent p-5 text-[16px] leading-[1.65] outline-none placeholder:text-ink/35 sm:px-7 sm:py-6"
-          />
-          {dragging && (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center bg-card/90 text-[16px] font-medium">
-              Drop to open your text file
-            </div>
+  const openFile = async (file?: File) => {
+    if (!file || !isTextFile(file)) return;
+    open(await file.text(), file.name);
+  };
+
+  // the pages' text, a moment after typing stops
+  const edited = () => {
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => current.current && setText(current.current.text), 300);
+  };
+
+  const pdfTitle = doc.name;
+  useEffect(() => {
+    if (layout) layout.title = pdfTitle;
+  }, [layout, pdfTitle]);
+
+  if (!layout) {
+    return (
+      <ToolShell tool={tool}>
+        <div role="status" className="flex flex-col items-center justify-center gap-4 py-32 text-[15px] text-ink/60">
+          {problem ?? (
+            <>
+              <Spinner className="size-7" />
+              Getting your page ready…
+            </>
           )}
         </div>
-      </Workbench>
-      {!hasText && <ToolGuide tool={tool} className="mx-auto max-w-2xl px-4 pb-28 lg:mt-16 lg:pb-16" />}
+      </ToolShell>
+    );
+  }
 
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          create(fileName);
+  const words = empty ? 0 : text.trim().split(/\s+/).length;
+  return (
+    <ToolShell tool={tool} doc={result ? { name: doc.name, onRename: doc.rename } : undefined} onDelete={result ? () => open('') : undefined} what="your text">
+      <WordPages
+        key={version}
+        layout={layout}
+        result={result}
+        onResult={setResult}
+        editing={editing}
+        onEditing={setEditing}
+        onDownload={() => result && doc.download((name) => saveAs(new Blob([result.bytes], { type: 'application/pdf' }), name))}
+        rows={<Row label="Words" value={words.toLocaleString()} />}
+        editor={{
+          // until there's a pdf, the editor is the whole tool
+          leave: result ? undefined : APP_HREF,
+          hint: empty ? (
+            <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              Start typing or paste your text.{hasKeyboard() && ` ${NEW_PAGE_KEYS} starts a new page.`}
+              <button type="button" onClick={() => picker.current?.click()} className="inline-flex items-center gap-1 font-medium text-ink underline-offset-2 hover:underline">
+                <FileUp size={14} />
+                Open a .txt file
+              </button>
+            </span>
+          ) : undefined,
+          onEdit: edited,
+          onDropFile: (file) => current.current?.empty && openFile(file),
         }}
       />
+      <input
+        ref={picker}
+        type="file"
+        accept=".txt,.md,text/plain,text/markdown"
+        className="hidden"
+        onChange={(e) => {
+          openFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

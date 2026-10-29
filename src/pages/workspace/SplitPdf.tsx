@@ -4,7 +4,6 @@ import { Check, Download, Eye, FileText } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import {
   Button,
-  FileRow,
   formatSize,
   IconButton,
   NameDialog,
@@ -13,6 +12,7 @@ import {
   Spinner,
   ToolShell,
   UploadCard,
+  useDocName,
   Workbench,
 } from '@/components/toolkit';
 import { closePdf } from '@/lib/pdfjs';
@@ -44,7 +44,7 @@ export default function SplitPdf() {
   const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [range, setRange] = useState({ from: '', to: '' });
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const doc = useDocName(file?.name.replace(/\.pdf$/i, '') ?? 'document');
   useReportWork(tool.id, !!file);
 
   const onDrop = useCallback(async (files: File[]) => {
@@ -107,6 +107,7 @@ export default function SplitPdf() {
     setPreviews([]);
     setPageCount(0);
     setSelected([]);
+    doc.forget();
   };
 
   if (!file) {
@@ -129,7 +130,7 @@ export default function SplitPdf() {
     'h-10 w-full min-w-0 rounded-[12px] border border-line bg-canvas px-3 text-[14px] tabular-nums outline-none transition-colors focus:border-ink';
 
   return (
-    <ToolShell tool={tool} onDelete={saving ? undefined : reset} what="this PDF">
+    <ToolShell tool={tool} doc={{ name: doc.name, onRename: doc.rename, onChange: reset }} onDelete={saving ? undefined : reset} what="this PDF">
       <Workbench
         panel={
           <Panel
@@ -140,7 +141,7 @@ export default function SplitPdf() {
                 size="lg"
                 className="w-full"
                 disabled={count === 0 || saving}
-                onClick={() => setSuggestedName(`split-${file.name.replace(/\.pdf$/i, '')}`)}
+                onClick={() => doc.download(extract, `split-${file.name.replace(/\.pdf$/i, '')}`)}
               >
                 {saving ? <Spinner className="size-[18px]" /> : <Download size={18} />}
                 {count ? `Extract ${count} ${count === 1 ? 'page' : 'pages'}` : 'Extract pages'}
@@ -196,12 +197,9 @@ export default function SplitPdf() {
           </Panel>
         }
       >
-        <FileRow
-          name={file.name}
-          meta={loading ? formatSize(file.size) : `${formatSize(file.size)} · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`}
-          onChange={reset}
-        />
-        <p className="px-1 pb-3 pt-5 text-[14px] text-ink/55">Tap the pages you want to keep.</p>
+        <p className="px-1 pb-3 text-[14px] text-ink/55">
+          {loading ? formatSize(file.size) : `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} · ${formatSize(file.size)}`}. Tap the pages you want to keep.
+        </p>
 
         {loading ? (
           <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-[24px] bg-card py-24 text-[15px] text-ink/60">
@@ -271,14 +269,7 @@ export default function SplitPdf() {
         renderPage={renderPage}
       />
 
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          extract(fileName);
-        }}
-      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

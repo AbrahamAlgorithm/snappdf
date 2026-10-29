@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Check, ChevronLeft, ChevronRight, Copy, Eraser, FileText, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Eraser, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, Dialog, IconButton, Spinner, UploadCard } from '@/components/toolkit';
 import { closePdf, openPdf } from '@/lib/pdfjs';
 import { renderPageImage } from '@/lib/pdfUtils';
@@ -565,17 +565,11 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
         />
       ) : (
         <>
-          <input {...docDropzone.getInputProps()} />
-          <div className="sticky top-[76px] z-30 flex items-center gap-2 rounded-[20px] bg-card p-2 pl-3">
-            <span className="hidden size-9 shrink-0 place-items-center rounded-[12px] bg-subtle text-ink/60 sm:grid">
-              <FileText size={18} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium">{docName}</p>
-              <p className="text-[12px] text-ink/50">
-                {pageCount} {pageCount === 1 ? 'page' : 'pages'}
-              </p>
-            </div>
+          {/* the document's name and change button are in the tool's bar */}
+          <div className="sticky top-[76px] z-30 flex items-center gap-2 rounded-[20px] bg-card p-2 pl-4">
+            <p className="min-w-0 flex-1 truncate text-[14px] text-ink/60">
+              {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+            </p>
             {pageCount > 1 && (
               <div className="flex items-center">
                 <IconButton label="Previous page" size="sm" disabled={currentPage === 0} onClick={() => goToPage(Math.max(0, currentPage - 1))}>
@@ -598,9 +592,6 @@ export const DocumentSigner = React.forwardRef<DocumentSignerRef, DocumentSigner
                 <ZoomIn size={17} />
               </IconButton>
             </div>
-            <Button variant="ghost" size="sm" onClick={docDropzone.open}>
-              Replace
-            </Button>
           </div>
 
           {/* click the backdrop or the page to deselect */}

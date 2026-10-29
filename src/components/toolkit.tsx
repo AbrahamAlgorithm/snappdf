@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { DropzoneState } from 'react-dropzone';
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, Plus, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, LoaderCircle, PenLine, Plus, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import { APP_HREF, toolHref } from '@/lib/router';
 import { TOOL_GUIDES } from '@/lib/seo';
 import { TOOLS, type Tool } from '@/lib/site';
@@ -277,9 +277,126 @@ export function PrivacyNote() {
   );
 }
 
+// the name a tool's download gets. it shows in the bar, where tapping it renames it, and once it's been named there or
+// when downloading, downloads go straight through without asking again
+export function useDocName(fallback: string) {
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{ suggested: string; save: (fileName: string) => void } | null>(null);
+  return {
+    name: chosen ?? fallback,
+    rename: setChosen,
+    // a new file starts from its own name again
+    forget: () => setChosen(null),
+    // saves under the chosen name, or asks first, starting from suggested
+    download: (save: (fileName: string) => void, suggested = fallback) => (chosen === null ? setAsking({ suggested, save }) : save(`${chosen}.pdf`)),
+    // for the tool's NameDialog
+    dialog: {
+      suggested: asking?.suggested ?? null,
+      onCancel: () => setAsking(null),
+      onConfirm: (fileName: string) => {
+        setChosen(fileName.replace(/\.pdf$/i, ''));
+        setAsking(null);
+        asking?.save(fileName);
+      },
+    },
+  };
+}
+
+export type DocBar = {
+  name: string;
+  onRename: (name: string) => void;
+  // what the download ends in, shown while renaming
+  extension?: string;
+  onChange?: () => void;
+};
+
+// characters files can't have, and the extension if someone typed it
+const cleanName = (name: string, extension: string) =>
+  name
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(new RegExp(`${extension.replace('.', '\\.')}$`, 'i'), '')
+    .trim()
+    .slice(0, 120);
+
+// the document's name, tap it to rename it like a google docs title
+function DocTitle({ name, extension, onRename }: { name: string; extension: string; onRename: (name: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  // escape leaves the name as it was, even though the field still blurs on its way out
+  const cancelled = useRef(false);
+  const editing = draft !== null;
+
+  useEffect(() => {
+    if (editing) input.current?.select();
+  }, [editing]);
+
+  const finish = () => {
+    if (!cancelled.current && draft !== null) {
+      const next = cleanName(draft, extension);
+      if (next && next !== name) onRename(next);
+    }
+    cancelled.current = false;
+    setDraft(null);
+  };
+
+  if (editing) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          finish();
+        }}
+        className="flex h-9 min-w-0 items-center rounded-[10px] border border-ink bg-canvas pl-2.5 pr-2"
+      >
+        <input
+          ref={input}
+          value={draft}
+          size={Math.max(8, Math.min(48, draft.length))}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={finish}
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape') return;
+            cancelled.current = true;
+            input.current?.blur();
+          }}
+          aria-label="File name"
+          // 16px on phones, or iphones zoom in when it's tapped
+          className="min-w-0 bg-transparent text-[16px] font-medium outline-none sm:text-[15px]"
+        />
+        <span className="shrink-0 text-[16px] text-ink/40 sm:text-[15px]">{extension}</span>
+      </form>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setDraft(name)}
+      title="Rename"
+      aria-label={`${name}, rename`}
+      className="group flex h-9 min-w-0 items-center gap-1.5 rounded-[10px] px-2 transition-colors hover:bg-subtle"
+    >
+      <span className="truncate text-[15px] font-medium">{name}</span>
+      <PenLine size={14} aria-hidden="true" className="shrink-0 text-ink/35 transition-colors group-hover:text-ink" />
+    </button>
+  );
+}
+
 // layout
-// onDelete adds a bin to the bar while a tool has files, so nobody has to refresh to get rid of them
-export function ToolShell({ tool, onDelete, what = 'your files', children }: { tool: Tool; onDelete?: () => void; what?: string; children: ReactNode }) {
+// doc puts the document's name in the bar with its own buttons. onDelete adds a bin while a tool has files, so nobody
+// has to refresh to get rid of them
+export function ToolShell({
+  tool,
+  doc,
+  onDelete,
+  what = 'your files',
+  children,
+}: {
+  tool: Tool;
+  doc?: DocBar;
+  onDelete?: () => void;
+  what?: string;
+  children: ReactNode;
+}) {
   const [asking, setAsking] = useState(false);
   const [deleted, setDeleted] = useState(false);
 
@@ -288,6 +405,12 @@ export function ToolShell({ tool, onDelete, what = 'your files', children }: { t
     const id = setTimeout(() => setDeleted(false), 3500);
     return () => clearTimeout(id);
   }, [deleted]);
+
+  const bin = onDelete && (
+    <IconButton label={`Delete ${what}`} onClick={() => setAsking(true)} className="hover:bg-red-50 hover:text-red-600">
+      <Trash2 size={19} />
+    </IconButton>
+  );
 
   return (
     <div className="min-h-screen bg-subtle text-ink">
@@ -302,14 +425,30 @@ export function ToolShell({ tool, onDelete, what = 'your files', children }: { t
             <ArrowLeft size={20} />
           </a>
           <ToolIcon tool={tool} size="sm" className="ml-1" />
-          <h1 className="ml-2.5 truncate text-[17px] font-semibold tracking-[-0.02em]">{tool.name}</h1>
+          {/* with a document open, phones show its name in the tool's place */}
+          <h1 className={cn('truncate text-[17px] font-semibold tracking-[-0.02em]', doc ? 'sr-only md:not-sr-only md:ml-2.5 md:shrink-0' : 'ml-2.5')}>
+            {tool.name}
+          </h1>
+          {doc && (
+            <>
+              <ChevronRight size={16} aria-hidden="true" className="hidden shrink-0 text-ink/30 md:block" />
+              <DocTitle name={doc.name} extension={doc.extension ?? '.pdf'} onRename={doc.onRename} />
+              {doc.onChange && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={doc.onChange} className="hidden sm:inline-flex">
+                    Change file
+                  </Button>
+                  <IconButton label="Change file" onClick={doc.onChange} className="sm:hidden">
+                    <FileUp size={19} />
+                  </IconButton>
+                </>
+              )}
+              {bin}
+            </>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            <PrivacyChip className="hidden sm:inline-flex" />
-            {onDelete && (
-              <IconButton label={`Delete ${what}`} onClick={() => setAsking(true)} className="hover:bg-red-50 hover:text-red-600">
-                <Trash2 size={19} />
-              </IconButton>
-            )}
+            <PrivacyChip className={doc ? 'hidden lg:inline-flex' : 'hidden sm:inline-flex'} />
+            {!doc && bin}
           </div>
         </div>
       </header>
@@ -393,25 +532,6 @@ export function Row({ label, value }: { label: string; value: ReactNode }) {
     <div className="flex justify-between gap-4">
       <dt className="text-ink/55">{label}</dt>
       <dd className="text-right font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-export function FileRow({ name, meta, onChange, className }: { name: string; meta: string; onChange?: () => void; className?: string }) {
-  return (
-    <div className={cn('flex items-center gap-3 rounded-[20px] bg-card p-3 sm:p-4', className)}>
-      <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-subtle text-ink/60">
-        <FileText size={20} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium">{name}</p>
-        <p className="text-[13px] text-ink/55">{meta}</p>
-      </div>
-      {onChange && (
-        <Button variant="ghost" size="sm" onClick={onChange}>
-          Change file
-        </Button>
-      )}
     </div>
   );
 }
@@ -652,9 +772,9 @@ export function NameDialog({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={suggested ?? ''}
-            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[16px] outline-none sm:text-[15px]"
           />
-          <span className="text-[15px] text-ink/40">.pdf</span>
+          <span className="text-[16px] text-ink/40 sm:text-[15px]">.pdf</span>
         </label>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>

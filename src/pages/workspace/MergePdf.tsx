@@ -25,6 +25,7 @@ import {
   Spinner,
   ToolShell,
   UploadCard,
+  useDocName,
   Workbench,
 } from '@/components/toolkit';
 import { closePdf } from '@/lib/pdfjs';
@@ -283,7 +284,7 @@ export default function MergePdf() {
   const [unreadable, setUnreadable] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const doc = useDocName(items[0] ? `${items[0].file.name.replace(/\.pdf$/i, '')}-merged` : 'merged');
   const [viewing, setViewing] = useState<number | null>(null);
   const { thumbs, watch, forget } = useThumbnails();
   useReportWork(tool.id, items.length > 0);
@@ -350,6 +351,7 @@ export default function MergePdf() {
     setItems([]);
     setUnreadable([]);
     setMergeError(null);
+    doc.forget();
   };
 
   const toggle = (id: string) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, collapsed: !i.collapsed } : i)));
@@ -421,7 +423,7 @@ export default function MergePdf() {
   const starts = items.map((_, i) => items.slice(0, i).reduce((sum, item) => sum + item.pageCount, 0));
 
   return (
-    <ToolShell tool={tool} onDelete={progress ? undefined : startOver} what="your PDFs">
+    <ToolShell tool={tool} doc={{ name: doc.name, onRename: doc.rename }} onDelete={progress ? undefined : startOver} what="your PDFs">
       <Workbench
         panel={
           <Panel
@@ -448,7 +450,7 @@ export default function MergePdf() {
                   size="lg"
                   className="w-full"
                   disabled={items.length < 2 || opening > 0}
-                  onClick={() => setSuggestedName(`${items[0].file.name.replace(/\.pdf$/i, '')}-merged`)}
+                  onClick={() => doc.download(merge)}
                 >
                   <Merge size={18} />
                   {items.length < 2 ? 'Merge PDFs' : `Merge ${plural(items.length, 'PDF')}`}
@@ -539,14 +541,7 @@ export default function MergePdf() {
         renderPage={renderPage}
       />
 
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          merge(fileName);
-        }}
-      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

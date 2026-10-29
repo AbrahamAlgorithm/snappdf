@@ -391,6 +391,40 @@ async function prepare(file: File) {
   return { blob: changed ? await zip.generateAsync({ type: 'blob' }) : file, found };
 }
 
+const WORD_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+const RELS_NS = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
+const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+
+// a word document holding text, a paragraph per line, set like a new google doc: arial 11 at 1.15 on a4 with inch margins.
+// the font is on the normal style too, which docx-preview gives to paragraphs as well as runs, so typing into an empty one matches
+export async function textDocx(text: string, name: string) {
+  const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const run = (part: string) => (part ? `<w:t xml:space="preserve">${escape(part)}</w:t>` : '');
+  const paragraphs = text
+    // xml can't hold most control characters
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => (line ? `<w:p><w:r>${line.split('\t').map(run).join('<w:tab/>')}</w:r></w:p>` : '<w:p/>'))
+    .join('');
+  const zip = new JSZip();
+  zip.file(
+    '[Content_Types].xml',
+    `${XML_HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`,
+  );
+  zip.file('_rels/.rels', `${XML_HEAD}<Relationships ${RELS_NS}><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  zip.file('word/_rels/document.xml.rels', `${XML_HEAD}<Relationships ${RELS_NS}><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file(
+    'word/styles.xml',
+    `${XML_HEAD}<w:styles ${WORD_NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style></w:styles>`,
+  );
+  zip.file(
+    'word/document.xml',
+    `${XML_HEAD}<w:document ${WORD_NS}><w:body>${paragraphs}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`,
+  );
+  return new File([await zip.generateAsync({ type: 'blob' })], `${name}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
 // docx-preview draws word's shapes as svg and sizes them a frame later, so that's done here before the pages are
 // measured. a text box's words also move in from its edges by the inset vmlShapes noted
 function fitShapes(body: HTMLElement) {
@@ -540,6 +574,8 @@ const HOST_CSS = `
 // a word document laid out as pages, kept open so it can be edited and made into a pdf again
 export class WordLayout {
   private editing = false;
+  // put away while the editor's hidden, edits and all
+  private paused = false;
   private dirty = false;
   private snapshot: HTMLElement | null = null;
   private onEdit: (() => void) | null = null;
@@ -550,7 +586,8 @@ export class WordLayout {
     private host: HTMLElement,
     private body: HTMLElement,
     private faces: FontFace[],
-    private title: string,
+    // the pdf's title
+    public title: string,
     private docFonts: string[],
     // the size most of the text is, in points
     readonly normalSize: number,
@@ -656,33 +693,47 @@ export class WordLayout {
     };
   }
 
-  // edits happen on the laid out pages themselves, moved into view inside mount. onEdit hears about every change
+  // edits happen on the laid out pages themselves, moved into view inside mount. onEdit hears about every change.
+  // after pauseEditing this carries on where it stopped
   startEditing(mount: HTMLElement, onEdit: () => void) {
     if (this.editing) return;
-    this.editing = true;
-    this.dirty = false;
-    this.onEdit = onEdit;
-    this.snapshot = this.body.cloneNode(true) as HTMLElement;
-    // where each page's text has to stop, measured while still full size off screen
-    for (const page of this.pages) page.style.setProperty('--w2p-limit', `${contentBottom(page) - page.getBoundingClientRect().top}px`);
-    for (const article of this.body.querySelectorAll<HTMLElement>('section.docx > article')) {
-      article.contentEditable = 'true';
-      article.spellcheck = false;
+    if (!this.paused) {
+      this.dirty = false;
+      this.snapshot = this.body.cloneNode(true) as HTMLElement;
+      // where each page's text has to stop, measured while still full size off screen
+      for (const page of this.pages) page.style.setProperty('--w2p-limit', `${contentBottom(page) - page.getBoundingClientRect().top}px`);
+      for (const article of this.body.querySelectorAll<HTMLElement>('section.docx > article')) {
+        article.contentEditable = 'true';
+        article.spellcheck = false;
+      }
+      for (const marker of this.body.querySelectorAll<HTMLElement>('.w2p-marker')) marker.contentEditable = 'false';
     }
-    for (const marker of this.body.querySelectorAll<HTMLElement>('.w2p-marker')) marker.contentEditable = 'false';
+    this.editing = true;
+    this.paused = false;
+    this.onEdit = onEdit;
     // enter makes a new paragraph like word, not a line break
     document.execCommand('defaultParagraphSeparator', false, 'p');
     this.host.classList.add('w2p-editing');
     this.host.removeAttribute('aria-hidden');
     this.host.addEventListener('input', this.changed);
+    this.host.addEventListener('keydown', this.keyDown);
+    this.host.addEventListener('paste', this.paste);
+    this.host.addEventListener('click', this.clickPage);
     document.addEventListener('selectionchange', this.rememberCaret);
     mount.append(this.host);
     this.checkOverflow();
   }
 
+  // puts the pages away without ending the edit, for while the editor is hidden
+  pauseEditing() {
+    if (!this.editing) return;
+    this.detach();
+    this.paused = true;
+  }
+
   // keeps the edits and flows the text across pages again. says whether anything changed
   finishEditing() {
-    if (!this.editing) return false;
+    if (!this.editing && !this.paused) return false;
     this.stopEditing();
     if (this.dirty) {
       syncMarkers(this.body);
@@ -693,12 +744,22 @@ export class WordLayout {
   }
 
   cancelEditing() {
-    if (!this.editing) return;
+    if (!this.editing && !this.paused) return;
     this.stopEditing();
     if (this.snapshot) {
       this.body.replaceWith(this.snapshot);
       this.body = this.snapshot;
     }
+  }
+
+  // everything typed on the pages, a line per paragraph
+  get text() {
+    return [...this.body.querySelectorAll<HTMLElement>('section.docx > article')].map((article) => article.innerText).join('\n');
+  }
+
+  // no words or pictures on any page
+  get empty() {
+    return !this.text.trim() && !this.body.querySelector('article img, article svg');
   }
 
   // fonts the editor offers: the document's own, and word's usual ones. all have stand-ins the pdf can embed
@@ -778,22 +839,61 @@ export class WordLayout {
   }
 
   private stopEditing() {
-    this.editing = false;
-    this.host.removeEventListener('input', this.changed);
-    document.removeEventListener('selectionchange', this.rememberCaret);
-    clearTimeout(this.timer);
+    this.detach();
+    this.paused = false;
     for (const el of this.body.querySelectorAll('[contenteditable]')) el.removeAttribute('contenteditable');
     for (const page of this.pages) {
       page.classList.remove('w2p-over');
       page.style.removeProperty('--w2p-limit');
     }
-    this.host.classList.remove('w2p-editing');
-    this.host.setAttribute('aria-hidden', 'true');
-    getSelection()?.removeAllRanges();
-    document.body.append(this.host);
-    this.onEdit = null;
     this.lastCaret = null;
   }
+
+  // takes the pages back off screen and stops listening
+  private detach() {
+    this.editing = false;
+    this.host.removeEventListener('input', this.changed);
+    this.host.removeEventListener('keydown', this.keyDown);
+    this.host.removeEventListener('paste', this.paste);
+    this.host.removeEventListener('click', this.clickPage);
+    document.removeEventListener('selectionchange', this.rememberCaret);
+    clearTimeout(this.timer);
+    this.host.classList.remove('w2p-editing');
+    this.host.setAttribute('aria-hidden', 'true');
+    if (this.host.contains(getSelection()?.anchorNode ?? null)) getSelection()?.removeAllRanges();
+    document.body.append(this.host);
+    this.onEdit = null;
+  }
+
+  // ctrl or cmd and enter starts a new page, like in word and google docs
+  private keyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+    e.preventDefault();
+    this.newPageAtCaret();
+  };
+
+  // pasted text takes on the look of where it lands. a web page's own markup would break the page layout
+  private paste = (e: ClipboardEvent) => {
+    const text = e.clipboardData?.getData('text/plain');
+    if (text === undefined) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, text.replace(/\r\n?/g, '\n'));
+  };
+
+  // a tap in a page's margin or below its text puts the cursor at the end of that page's text
+  private clickPage = (e: MouseEvent) => {
+    const page = e.target as HTMLElement;
+    if (!page.matches?.('section.docx')) return;
+    const article = page.querySelector<HTMLElement>(':scope > article');
+    const last = article?.lastElementChild;
+    if (!article || !last) return;
+    const range = document.createRange();
+    range.selectNodeContents(last);
+    range.collapse(false);
+    article.focus();
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+  };
 
   private changed = () => {
     this.dirty = true;

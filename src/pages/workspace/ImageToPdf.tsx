@@ -26,6 +26,7 @@ import {
   Spinner,
   ToolShell,
   UploadCard,
+  useDocName,
   Workbench,
 } from '@/components/toolkit';
 import { isHeicFile, processFileForImageUpload } from '@/lib/heicUtils';
@@ -304,7 +305,8 @@ export default function ImageToPdf() {
   const [busy, setBusy] = useState<string | null>(null);
   const [quality, setQuality] = useState(0.85);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  // named after the first picture, like the files people pick
+  const doc = useDocName(images[0]?.name.replace(/\.[^.]+$/, '') || 'images');
 
   const [viewing, setViewing] = useState<number | null>(null);
   const [cropping, setCropping] = useState<{ id: string; src: string; photo: Blob; corners: Quad | null } | null>(null);
@@ -376,6 +378,7 @@ export default function ImageToPdf() {
     previews.forget(images.map((img) => img.id));
     images.forEach(revoke);
     setImages([]);
+    doc.forget();
   };
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -460,7 +463,7 @@ export default function ImageToPdf() {
   const totalBytes = images.reduce((sum, img) => sum + img.size, 0);
 
   return (
-    <ToolShell tool={tool} onDelete={busy || progress ? undefined : startOver} what="your images">
+    <ToolShell tool={tool} doc={{ name: doc.name, onRename: doc.rename }} onDelete={busy || progress ? undefined : startOver} what="your images">
       <Workbench
         panel={
           <Panel
@@ -482,7 +485,7 @@ export default function ImageToPdf() {
                   </div>
                 </div>
               ) : (
-                <Button variant="primary" size="lg" className="w-full" disabled={!!busy} onClick={() => setSuggestedName(`snap-pdf-${Date.now()}`)}>
+                <Button variant="primary" size="lg" className="w-full" disabled={!!busy} onClick={() => doc.download(generate)}>
                   <Download size={18} />
                   Create PDF
                 </Button>
@@ -605,14 +608,7 @@ export default function ImageToPdf() {
         onApply={applyCrop}
       />
 
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(fileName) => {
-          setSuggestedName(null);
-          generate(fileName);
-        }}
-      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

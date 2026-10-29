@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import fontkit from '@pdf-lib/fontkit';
-import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, isOldWindowsPicture, plainBullets, readCounters, standIn, textInset, type Family } from '@/lib/wordToPdf';
+import JSZip from 'jszip';
+import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, isOldWindowsPicture, plainBullets, readCounters, standIn, textDocx, textInset, type Family } from '@/lib/wordToPdf';
 
 describe('standIn', () => {
   it('matches word’s own fonts to the stand-in with the same widths', () => {
@@ -110,6 +111,17 @@ describe('shapes', () => {
     // the same start as an emf, without its signature
     emf.set([0, 0, 0, 0], 40);
     expect(isOldWindowsPicture(emf)).toBe(false);
+  });
+});
+
+describe('text documents', () => {
+  it('puts each line in its own paragraph, with tabs and blank lines kept', async () => {
+    const file = await textDocx('Notes & <ideas>\r\nName:\tAda\n\nEnd\u0007', 'notes');
+    expect(file.name).toBe('notes.docx');
+    const xml = await (await JSZip.loadAsync(await file.arrayBuffer())).file('word/document.xml')!.async('string');
+    expect(xml).toContain('<w:p><w:r><w:t xml:space="preserve">Notes &amp; &lt;ideas&gt;</w:t></w:r></w:p>');
+    expect(xml).toContain('<w:t xml:space="preserve">Name:</w:t><w:tab/><w:t xml:space="preserve">Ada</w:t>');
+    expect(xml).toContain('<w:p/><w:p><w:r><w:t xml:space="preserve">End</w:t></w:r></w:p>');
   });
 });
 

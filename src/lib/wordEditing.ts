@@ -5,6 +5,10 @@ import type { WordLayout } from '@/lib/wordToPdf';
 
 const firstFamily = (list: string) => (list.split(',')[0] ?? '').trim().replace(/^["']|["']$/g, '');
 
+// the keys word and google docs use for a new page
+export const NEW_PAGE_KEYS = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘+Enter' : 'Ctrl+Enter';
+export const hasKeyboard = () => window.matchMedia('(pointer: fine)').matches;
+
 export type Align = 'left' | 'center' | 'right' | 'justify';
 export type ListKind = 'bullet' | 'number';
 export type Block = 'normal' | 'title' | 'h1' | 'h2' | 'h3';

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useDropzone, type Accept } from 'react-dropzone';
 import { ArrowRight, Check, Download, Eye, Info } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { Button, FileRow, formatSize, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard } from '@/components/toolkit';
+import { Button, formatSize, PageViewer, PrivacyNote, Spinner, ToolShell, UploadCard, useDocName } from '@/components/toolkit';
 import { csvToExcel, jsonToCsv, jsonToExcel } from '@/lib/convUtils';
 import { closePdf } from '@/lib/pdfjs';
 import { pdfToWord } from '@/lib/pdfToWord';
@@ -90,8 +90,9 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   const [pageCount, setPageCount] = useState(0);
   const [converting, setConverting] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [result, setResult] = useState<{ blob: Blob; name: string; scanned: number[] } | null>(null);
+  const [result, setResult] = useState<{ blob: Blob; scanned: number[] } | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
+  const doc = useDocName(file?.name.replace(config.input, '') ?? 'file');
   useReportWork(mode, !!file);
 
   const dropzone = useDropzone({
@@ -122,7 +123,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
     setFailed(false);
     try {
       const { blob, scanned = [] } = await config.convert(file);
-      setResult({ blob, name: file.name.replace(config.input, '') + config.output, scanned });
+      setResult({ blob, scanned });
     } catch (err) {
       console.error('Conversion error', err);
       setFailed(true);
@@ -147,6 +148,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
     setFailed(false);
     setPreviews([]);
     setPageCount(0);
+    doc.forget();
   };
 
   if (!file) {
@@ -165,7 +167,12 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
   }
 
   return (
-    <ToolShell tool={tool} onDelete={converting ? undefined : reset} what="this file">
+    <ToolShell
+      tool={tool}
+      doc={{ name: doc.name, onRename: doc.rename, extension: config.output, onChange: converting ? undefined : reset }}
+      onDelete={converting ? undefined : reset}
+      what="this file"
+    >
       <div className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">
         <div className="rounded-[28px] bg-card p-5 sm:p-8">
           {result ? (
@@ -174,7 +181,10 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
                 <Check size={28} strokeWidth={2.5} />
               </span>
               <h2 className="mt-5 text-[22px] font-semibold tracking-[-0.02em]">Your file is ready</h2>
-              <p className="mt-1.5 break-all text-[14px] text-ink/60">{result.name}</p>
+              <p className="mt-1.5 break-all text-[14px] text-ink/60">
+                {doc.name}
+                {config.output}
+              </p>
               {result.scanned.length > 0 && (
                 <p className="mx-auto mt-5 flex max-w-sm items-start gap-2.5 rounded-[16px] bg-subtle px-4 py-3 text-left text-[14px] leading-relaxed text-ink/70">
                   <Info size={17} className="mt-0.5 shrink-0" />
@@ -182,7 +192,7 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
                 </p>
               )}
               <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
-                <Button variant="primary" size="lg" onClick={() => saveAs(result.blob, result.name)}>
+                <Button variant="primary" size="lg" onClick={() => saveAs(result.blob, `${doc.name}${config.output}`)}>
                   <Download size={18} />
                   Download
                 </Button>
@@ -199,16 +209,13 @@ export default function ConvertFile({ mode }: { mode: ConvertMode }) {
             </div>
           ) : (
             <>
-              <FileRow
-                name={file.name}
-                meta={pageCount ? `${formatSize(file.size)} · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : formatSize(file.size)}
-                onChange={reset}
-                className="bg-subtle"
-              />
-              <div className="mt-4 flex items-center gap-3 rounded-[20px] border border-line px-5 py-4">
+              <div className="flex items-center gap-3 rounded-[20px] border border-line px-5 py-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-[12px] text-ink/50">From</p>
                   <p className="mt-0.5 text-[15px] font-medium">{config.from}</p>
+                  <p className="mt-0.5 text-[12px] text-ink/50">
+                    {pageCount ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} · ${formatSize(file.size)}` : formatSize(file.size)}
+                  </p>
                 </div>
                 <ArrowRight size={18} className="shrink-0 text-ink/35" aria-hidden="true" />
                 <div className="min-w-0 flex-1 text-right">
