@@ -1,11 +1,11 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
 import { GitHubStarButton } from '@/components/GitHubStarButton';
 import { SiteFooter, SiteNav } from '@/components/site';
 import { PrivacyChip, ToolIcon } from '@/components/toolkit';
 import { APP_HREF } from '@/lib/router';
-import { getTool, GITHUB_URL } from '@/lib/site';
+import { getTool, GITHUB_URL, WHATS_NEW } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { FileBar } from '@/pages/landing/FileBar';
 import { PrivacyShowcase } from '@/pages/landing/PrivacyShowcase';
@@ -190,8 +190,24 @@ function HeroPreview() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pb-20 pt-32 sm:pb-28 sm:pt-36 lg:pt-40">
+    <section className={cn('relative overflow-hidden pb-20 sm:pb-28', WHATS_NEW ? 'pt-28 sm:pt-32 lg:pt-36' : 'pt-32 sm:pt-36 lg:pt-40')}>
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
+        {WHATS_NEW && (
+          <motion.a
+            href={WHATS_NEW.href}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="group mb-3 inline-flex max-w-full items-center gap-2.5 rounded-full border border-line bg-canvas py-1 pl-1 pr-3.5 text-[13px] font-medium text-ink/70 transition-colors hover:border-ink/20 hover:text-ink sm:mb-4 sm:text-[14px]"
+          >
+            <span className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[12px] font-semibold leading-none text-canvas">New</span>
+            <span className="truncate">{WHATS_NEW.text}</span>
+            <span className="flex shrink-0 items-center gap-1 text-ink">
+              Try it
+              <ArrowRight size={14} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </motion.a>
+        )}
         <h1
           aria-label="The ultimate PDF workspace. Zero paywalls"
           style={HEADLINE_VARS}
