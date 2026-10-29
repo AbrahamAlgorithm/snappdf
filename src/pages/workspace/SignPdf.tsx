@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Check, Copy, Download, Minus, PenLine, Plus, RotateCcw, RotateCw, Trash2, Upload } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { DocumentSigner, type DocumentSignerRef } from '@/components/DocumentSigner';
-import { Button, IconButton, NameDialog, Panel, Spinner, Switch, ToolShell, Workbench } from '@/components/toolkit';
+import { Button, IconButton, NameDialog, Panel, Spinner, Switch, ToolShell, useDocName, Workbench } from '@/components/toolkit';
 import { getTool } from '@/lib/site';
 import { embedSignaturesIntoPdf, type SignatureItem } from '@/lib/signerUtils';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ export default function SignPdf() {
   const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const doc = useDocName((fileName || 'document').replace(/\.[^/.]+$/, ''));
   useReportWork(tool.id, !!docBytes);
 
   const onDocumentChange = useCallback((bytes: Uint8Array | null, name: string, sigs: SignatureItem[], selected?: string | null) => {
@@ -48,6 +48,11 @@ export default function SignPdf() {
 
   const active = signatures.find((s) => s.id === selectedId);
 
+  const clear = () => {
+    signer.current?.clearDocument();
+    doc.forget();
+  };
+
   const panel = docBytes ? (
     <Panel
       title="Signatures"
@@ -57,7 +62,7 @@ export default function SignPdf() {
           size="lg"
           className="w-full"
           disabled={saving}
-          onClick={() => setSuggestedName(`${(fileName || 'document').replace(/\.[^/.]+$/, '')}-signed`)}
+          onClick={() => doc.download(download, `${(fileName || 'document').replace(/\.[^/.]+$/, '')}-signed`)}
         >
           {saving ? <Spinner className="size-[18px]" /> : <Download size={18} />}
           Download signed PDF
@@ -190,18 +195,16 @@ export default function SignPdf() {
   ) : null;
 
   return (
-    <ToolShell tool={tool} onDelete={docBytes && !saving ? () => signer.current?.clearDocument() : undefined} what="this document">
+    <ToolShell
+      tool={tool}
+      doc={docBytes ? { name: doc.name, onRename: doc.rename, onChange: saving ? undefined : clear } : undefined}
+      onDelete={docBytes && !saving ? clear : undefined}
+      what="this document"
+    >
       <Workbench panel={panel}>
         <DocumentSigner ref={signer} selectedSigId={selectedId} onSelectSigId={setSelectedId} onDocumentChange={onDocumentChange} />
       </Workbench>
-      <NameDialog
-        suggested={suggestedName}
-        onCancel={() => setSuggestedName(null)}
-        onConfirm={(name) => {
-          setSuggestedName(null);
-          download(name);
-        }}
-      />
+      <NameDialog {...doc.dialog} />
     </ToolShell>
   );
 }

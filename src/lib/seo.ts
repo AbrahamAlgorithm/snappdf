@@ -107,12 +107,13 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
     description: 'Type, paste or open a .txt file and save it as a clean, readable PDF. Free, works offline, and nothing you write is uploaded.',
     howTo: 'How to turn text into a PDF',
     steps: [
-      { title: 'Add your text', text: 'Type or paste it, or open a .txt or .md file.' },
-      { title: 'Check it over', text: 'The word and character counts update as you type.' },
-      { title: 'Download the PDF', text: 'Name it and save it. Your text is laid out on A4 pages, with the lines wrapped for you.' },
+      { title: 'Type on the page', text: 'It opens on a blank A4 page, like Google Docs. Type or paste, or open a .txt or .md file.' },
+      { title: 'Format it', text: 'Add headings, bold, lists, colours and pictures. Ctrl+Enter (⌘+Enter on a Mac) starts a new page.' },
+      { title: 'Download the PDF', text: 'Tap Done to see every page, then name it and save it.' },
     ],
     faqs: [
-      { q: 'Can I convert a .txt file to PDF?', a: 'Yes. Open the file and its text goes straight into the editor, ready to save as a PDF.' },
+      { q: 'Can I convert a .txt file to PDF?', a: 'Yes. Open the file and its text goes straight onto the pages, ready to edit and save as a PDF.' },
+      { q: 'How do I start a new page?', a: 'Press Ctrl+Enter, or ⌘+Enter on a Mac, the same as in Word and Google Docs. On a phone, tap the new page button at the top.' },
       {
         q: 'Which languages work?',
         a: 'English and most Western European languages. Emoji and some symbols or alphabets can’t go in the PDF yet, and snappdf tells you before you save.',

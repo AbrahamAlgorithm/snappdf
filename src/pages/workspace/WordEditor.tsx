@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Check, FilePlus2, Minus, Plus, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { ArrowLeft, Check, FilePlus2, Minus, Plus, X } from 'lucide-react';
 import { Button, Dialog, IconButton, Spinner } from '@/components/toolkit';
+import { hasKeyboard, NEW_PAGE_KEYS } from '@/lib/wordEditing';
 import type { WordLayout } from '@/lib/wordToPdf';
 import WordToolbar from '@/pages/workspace/WordToolbar';
 
@@ -13,11 +14,23 @@ export default function WordEditor({
   start,
   onSave,
   onClose,
+  leave,
+  hint,
+  onEdit,
+  onDropFile,
 }: {
   layout: WordLayout;
   start: number;
-  onSave: () => Promise<void>;
+  // after done, with whether anything changed
+  onSave: (changed: boolean) => Promise<void>;
   onClose: () => void;
+  // a link out in place of cancel, for when the editor is the whole tool
+  leave?: string;
+  // shown above the pages until the first change
+  hint?: ReactNode;
+  onEdit?: () => void;
+  // a file dropped on the pages, which the browser would otherwise open in place of the app
+  onDropFile?: (file: File) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const mount = useRef<HTMLDivElement>(null);
@@ -32,12 +45,16 @@ export default function WordEditor({
   const [asking, setAsking] = useState(false);
   const [tip, setTip] = useState<string | null>(null);
 
-  // the pages move in here while editing, fitted to the screen's width
+  const edited = useRef(onEdit);
+  edited.current = onEdit;
+
+  // the pages move in here while editing, fitted to the screen's width. hiding the tool only puts them away, edits and all
   useLayoutEffect(() => {
     const box = mount.current!;
     layout.startEditing(box, () => {
       setDirty(true);
       setCount(layout.pages.length);
+      edited.current?.();
     });
     const scroll = scroller.current!;
     const pad = getComputedStyle(scroll);
@@ -47,7 +64,7 @@ export default function WordEditor({
     observer.observe(box);
     return () => {
       observer.disconnect();
-      layout.cancelEditing();
+      layout.pauseEditing();
     };
   }, [layout]);
 
@@ -99,7 +116,7 @@ export default function WordEditor({
   const done = async () => {
     setSaving(true);
     try {
-      if (layout.finishEditing()) await onSave();
+      await onSave(layout.finishEditing());
     } finally {
       onClose();
     }
@@ -110,12 +127,30 @@ export default function WordEditor({
     onClose();
   };
 
+  const onDragOver = (e: DragEvent) => e.dataTransfer.types.includes('Files') && e.preventDefault();
+  const onDrop = (e: DragEvent) => {
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    onDropFile?.(e.dataTransfer.files[0]);
+  };
+
   return (
     <div role="dialog" aria-modal="true" aria-label="Edit pages" className="fixed inset-0 z-[100] flex flex-col bg-subtle text-ink">
       <div className="flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas px-2 sm:h-16 sm:px-4">
-        <IconButton label="Cancel" onClick={() => (dirty ? setAsking(true) : discard())} disabled={saving}>
-          <X size={20} />
-        </IconButton>
+        {leave ? (
+          <a
+            href={leave}
+            aria-label="All tools"
+            title="All tools"
+            className="grid size-10 shrink-0 place-items-center rounded-full text-ink/70 transition-colors hover:bg-subtle hover:text-ink"
+          >
+            <ArrowLeft size={20} />
+          </a>
+        ) : (
+          <IconButton label="Cancel" onClick={() => (dirty ? setAsking(true) : discard())} disabled={saving}>
+            <X size={20} />
+          </IconButton>
+        )}
         <span className="ml-1 whitespace-nowrap text-[14px] font-medium tabular-nums sm:text-[15px]">
           Page {Math.min(page, count - 1) + 1} of {count}
         </span>
@@ -129,7 +164,7 @@ export default function WordEditor({
           <Button
             variant="outline"
             aria-label="New page here"
-            title="Start a new page where the cursor is"
+            title={`Start a new page where the cursor is (${NEW_PAGE_KEYS})`}
             disabled={saving}
             // keeps the cursor in the text, a tap here would otherwise take it away
             onPointerDown={(e) => e.preventDefault()}
@@ -148,12 +183,23 @@ export default function WordEditor({
       <WordToolbar layout={layout} onTip={setTip} />
       {/* until the first change, then the room goes back to the page */}
       {!dirty && (
-        <p className="shrink-0 border-b border-line bg-canvas px-4 py-2 text-center text-[12.5px] leading-snug text-ink/55">
-          Tap any text to change it, and press Enter to add space. Text below a red line moves to the next page when you tap Done.
-        </p>
+        <div className="shrink-0 border-b border-line bg-canvas px-4 py-2 text-center text-[12.5px] leading-snug text-ink/55">
+          {hint ?? (
+            <>
+              Tap any text to change it, and press Enter to add space.{hasKeyboard() && ` ${NEW_PAGE_KEYS} starts a new page.`} Text below a red line moves to
+              the next page when you tap Done.
+            </>
+          )}
+        </div>
       )}
 
-      <div ref={scroller} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        className="relative min-h-0 flex-1 overflow-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6"
+      >
         <div className="mx-auto" style={{ width: width * zoom, height: height * zoom }}>
           <div ref={mount} style={{ width, transform: `scale(${zoom})`, transformOrigin: '0 0' }} />
         </div>
