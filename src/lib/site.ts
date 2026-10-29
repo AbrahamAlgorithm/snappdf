@@ -1,5 +1,4 @@
-import { Braces, FileSpreadsheet, FileText, FileType, Images, Merge, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
-
+import { Braces, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
 export const GITHUB_REPO = 'AbrahamAlgorithm/snappdf';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
@@ -9,6 +8,7 @@ export type ToolId =
   | 'pdf-splitter'
   | 'sign-pdf'
   | 'text-to-pdf'
+  | 'compress-pdf'
   | 'pdf-to-word'
   | 'csv-to-excel'
   | 'json-to-excel'
@@ -66,6 +66,14 @@ export const TOOLS: Tool[] = [
     group: 'Create and edit',
     icon: FileText,
     color: '#0891b2',
+  },
+    {
+    id: 'compress-pdf',
+    name: 'Compress PDF',
+    description: 'Shrink a PDF to fit email and upload limits, or to a size you choose.',
+    group: 'Create and edit',
+    icon: Minimize2,
+    color: '#4f46e5',
   },
   {
     id: 'pdf-to-word',
