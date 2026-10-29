@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import fontkit from '@pdf-lib/fontkit';
-import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, plainBullets, readCounters, standIn, type Family } from '@/lib/wordToPdf';
+import { evaluateContent, faceFor, FACES, fileOf, firstFamily, formatCounter, isOldWindowsPicture, plainBullets, readCounters, standIn, textInset, type Family } from '@/lib/wordToPdf';
 
 describe('standIn', () => {
   it('matches word’s own fonts to the stand-in with the same widths', () => {
@@ -84,6 +84,32 @@ describe('list markers', () => {
   it('takes the first font from a css list', () => {
     expect(firstFamily('"Times New Roman", serif')).toBe('Times New Roman');
     expect(firstFamily('Calibri')).toBe('Calibri');
+  });
+});
+
+describe('shapes', () => {
+  it('reads a text box inset in points, keeping word’s default for sides left out', () => {
+    expect(textInset(null)).toEqual([7.2, 3.6, 7.2, 3.6]);
+    expect(textInset('0,0,0,0')).toEqual([0, 0, 0, 0]);
+    expect(textInset('5.76pt,2.88pt,5.76pt,2.88pt')).toEqual([5.76, 2.88, 5.76, 2.88]);
+    expect(textInset('0,,0')).toEqual([0, 3.6, 0, 3.6]);
+    expect(textInset('.1in,1mm')[0]).toBeCloseTo(7.2);
+    expect(textInset('.1in,1mm')[1]).toBeCloseTo(2.835, 2);
+    // a bare number is in emu
+    textInset('91440,45720').forEach((side, i) => expect(side).toBeCloseTo([7.2, 3.6, 7.2, 3.6][i]));
+  });
+
+  it('spots emf and wmf pictures', () => {
+    const emf = new Uint8Array(108);
+    emf.set([1, 0, 0, 0]);
+    emf.set([0x20, 0x45, 0x4d, 0x46], 40);
+    expect(isOldWindowsPicture(emf)).toBe(true);
+    expect(isOldWindowsPicture(new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 0, 0]))).toBe(true);
+    expect(isOldWindowsPicture(new Uint8Array([1, 0, 9, 0, 0, 3]))).toBe(true);
+    expect(isOldWindowsPicture(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe(false);
+    // the same start as an emf, without its signature
+    emf.set([0, 0, 0, 0], 40);
+    expect(isOldWindowsPicture(emf)).toBe(false);
   });
 });
 

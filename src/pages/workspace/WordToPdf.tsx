@@ -187,6 +187,19 @@ export default function WordToPdf() {
               <Row label="PDF size" value={formatSize(result.bytes.length)} />
             </dl>
             {result.missingText && <Note>Emoji and some symbols or alphabets can’t go in the PDF yet, so they’re left out.</Note>}
+            {result.charts > 0 && (
+              <Note>
+                {result.charts === 1 ? 'A chart or diagram' : `${result.charts} charts or diagrams`} from Word can’t go in the PDF yet. In Word,
+                copy {result.charts === 1 ? 'it' : 'each one'}, paste it back with Paste Special as a picture, then convert again.
+              </Note>
+            )}
+            {result.oldPictures > 0 && (
+              <Note>
+                {result.oldPictures === 1 ? 'A picture is' : `${result.oldPictures} pictures are`} in an old Windows format (EMF or WMF) that can’t go in
+                the PDF yet. In Word, right-click {result.oldPictures === 1 ? 'it' : 'each one'}, choose Save as Picture, insert that picture
+                instead, then convert again.
+              </Note>
+            )}
             {result.skipped > 0 && (
               <Note>
                 {result.skipped === 1 ? 'One picture or shape' : `${result.skipped} pictures or shapes`} couldn’t go in the PDF, so check the pages
