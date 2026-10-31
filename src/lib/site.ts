@@ -1,4 +1,4 @@
-import { Braces, FileOutput, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
+import { Braces, EyeOff, FileOutput, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
 export const GITHUB_REPO = 'AbrahamAlgorithm/snappdf';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
@@ -9,6 +9,7 @@ export type ToolId =
   | 'sign-pdf'
   | 'text-to-pdf'
   | 'compress-pdf'
+  | 'redact-pdf'
   | 'pdf-to-word'
   | 'word-to-pdf'
   | 'csv-to-excel'
@@ -75,6 +76,14 @@ export const TOOLS: Tool[] = [
     group: 'Create and edit',
     icon: Minimize2,
     color: '#4f46e5',
+  },
+  {
+    id: 'redact-pdf',
+    name: 'Redact PDF',
+    description: 'Black out names, numbers and other private details so they’re removed for good.',
+    group: 'Create and edit',
+    icon: EyeOff,
+    color: '#374151',
   },
   {
     id: 'pdf-to-word',

@@ -143,7 +143,30 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
       notUploaded('PDF'),
     ],
   },
-  
+  'redact-pdf': {
+    title: 'Redact PDF Free: Black Out Text and Pages · snappdf',
+    description:
+      'Redact a PDF for free. Draw boxes over private details, find every email or phone number, or black out whole pages. The text under the black is removed for good, and nothing is uploaded.',
+    howTo: 'How to redact a PDF',
+    steps: [
+      { title: 'Choose a PDF', text: 'Add the PDF that has details you need to hide.' },
+      { title: 'Cover what to hide', text: 'Drag boxes over it on the page, find text like emails and phone numbers, or black out whole pages. Move, resize or remove any box.' },
+      { title: 'Check and download', text: 'Look over the redacted pages, then save the new PDF. Your original is untouched.' },
+    ],
+    faqs: [
+      {
+        q: 'Is the text under the black really removed?',
+        a: 'Yes. Redacted pages are drawn again as pictures with the black burned in, so the words under it are not in the new file and can’t be copied, searched or recovered.',
+      },
+      {
+        q: 'Why can’t I select text on a redacted page?',
+        a: 'Because the page is a picture now. That’s what makes the redaction permanent. Pages you didn’t redact keep their selectable text.',
+      },
+      { q: 'Can I redact a scanned PDF?', a: 'Yes. Draw boxes over what you want to hide. Searching by text needs a PDF with real text, which scans don’t have.' },
+      notUploaded('PDF'),
+    ],
+  },
+
   'pdf-to-word': {
     title: 'Free PDF to Word Converter: Editable DOCX · snappdf',
     description: 'Convert a PDF to an editable Word document that looks like the original. Free, no sign-up, and your PDF never leaves your device.',

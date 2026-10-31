@@ -7,6 +7,7 @@ import SplitPdf from '@/pages/workspace/SplitPdf';
 import TextToPdf from '@/pages/workspace/TextToPdf';
 import CompressPdf from '@/pages/workspace/CompressPdf';
 import WordToPdf from '@/pages/workspace/WordToPdf';
+import RedactPdf from '@/pages/workspace/RedactPdf';
 
 export default function Workspace({ tool }: { tool: ToolId }) {
   switch (tool) {
@@ -24,6 +25,8 @@ export default function Workspace({ tool }: { tool: ToolId }) {
       return <CompressPdf />;
     case 'word-to-pdf':
       return <WordToPdf />;
+    case 'redact-pdf':
+      return <RedactPdf />;
     default:
       return <ConvertFile mode={tool} />;
   }
