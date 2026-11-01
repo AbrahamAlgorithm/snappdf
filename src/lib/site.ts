@@ -131,8 +131,8 @@ export const TOOL_GROUPS: ToolGroup[] = ['Create and edit', 'Convert'];
 
 // the "new" pill above the landing page headline. point it at whatever shipped last, or set it to null to hide it
 export const WHATS_NEW: { text: string; href: string } | null = {
-  text: 'Word to PDF has been added',
-  href: '/app/word-to-pdf',
+  text: 'Redact PDF has been added',
+  href: '/app/redact-pdf',
 };
 
 export function getTool(id: ToolId): Tool {
