@@ -1,4 +1,4 @@
-import { Braces, FileOutput, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
+import { Braces, EyeOff, FileOutput, FileSpreadsheet, FileText, FileType, Images, Merge, Minimize2, Scissors, Signature, Table2, type LucideIcon } from 'lucide-react';
 export const GITHUB_REPO = 'AbrahamAlgorithm/snappdf';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
@@ -9,6 +9,7 @@ export type ToolId =
   | 'sign-pdf'
   | 'text-to-pdf'
   | 'compress-pdf'
+  | 'redact-pdf'
   | 'pdf-to-word'
   | 'word-to-pdf'
   | 'csv-to-excel'
@@ -77,6 +78,14 @@ export const TOOLS: Tool[] = [
     color: '#4f46e5',
   },
   {
+    id: 'redact-pdf',
+    name: 'Redact PDF',
+    description: 'Black out names, numbers and other private details so they’re removed for good.',
+    group: 'Create and edit',
+    icon: EyeOff,
+    color: '#374151',
+  },
+  {
     id: 'pdf-to-word',
     name: 'PDF to Word',
     description: 'Turn a PDF into a Word file that looks just like it, with every word editable.',
@@ -122,8 +131,8 @@ export const TOOL_GROUPS: ToolGroup[] = ['Create and edit', 'Convert'];
 
 // the "new" pill above the landing page headline. point it at whatever shipped last, or set it to null to hide it
 export const WHATS_NEW: { text: string; href: string } | null = {
-  text: 'Word to PDF has been added',
-  href: '/app/word-to-pdf',
+  text: 'Redact PDF has been added',
+  href: '/app/redact-pdf',
 };
 
 export function getTool(id: ToolId): Tool {
