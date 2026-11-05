@@ -6,6 +6,9 @@ import { TOOLS, type ToolId } from './site';
 export const SITE_URL = 'https://snappdf.abrahamalgorithm.tech';
 const OG_IMAGE = `${SITE_URL}/og.jpg`;
 const AUTHOR = { name: 'Abraham Folorunso', url: 'https://abrahamalgorithm.tech' };
+const GITHUB = 'https://github.com/AbrahamAlgorithm/snappdf';
+// how people type the name when they search for it
+const ALSO_KNOWN_AS = ['SnapPDF', 'Snap PDF', 'snappdf free PDF tools'];
 
 export type Faq = { q: string; a: string };
 export type Step = { title: string; text: string };
@@ -103,7 +106,7 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
     ],
   },
   'text-to-pdf': {
-    title: 'Text to PDF Converter: TXT to PDF, Free · snappdf',
+    title: 'Free Text to PDF Converter Online: TXT to PDF · snappdf',
     description: 'Type, paste or open a .txt file and save it as a clean, readable PDF. Free, works offline, and nothing you write is uploaded.',
     howTo: 'How to turn text into a PDF',
     steps: [
@@ -168,7 +171,7 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
   },
 
   'pdf-to-word': {
-    title: 'Free PDF to Word Converter: Editable DOCX · snappdf',
+    title: 'Free PDF to Word Converter Online: PDF to DOCX · snappdf',
     description: 'Convert a PDF to an editable Word document that looks like the original. Free, no sign-up, and your PDF never leaves your device.',
     howTo: 'How to convert a PDF to Word',
     steps: [
@@ -189,7 +192,7 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
     ],
   },
   'word-to-pdf': {
-    title: 'Free Word to PDF Converter: DOCX to PDF · snappdf',
+    title: 'Free Word to PDF Converter Online: DOCX to PDF · snappdf',
     description: 'Convert a Word document (.docx) to PDF for free and see every page before you download. The text stays selectable, and nothing is uploaded.',
     howTo: 'How to convert Word to PDF',
     steps: [
@@ -266,19 +269,47 @@ export const TOOL_GUIDES: Record<ToolId, Guide> = {
   },
 };
 
+// the landing page's questions, shown on the page and given to search engines as its faq
+export const LANDING_FAQS: Faq[] = [
+  { q: 'Is snappdf really free?', a: 'Yes. No trials, no watermarks, no premium tier and no sign-up. It’s open source, so it stays that way.' },
+  { q: 'Are my files uploaded anywhere?', a: 'No. Every tool runs inside your browser, so your files never leave your device.' },
+  {
+    q: 'Which tools and file types are there?',
+    a: 'Convert Word (.docx) to PDF and PDF to Word, turn images (JPG, PNG, HEIC, WEBP, GIF, BMP) or text into a PDF, and turn CSV or JSON into Excel. You can also merge, split, compress, sign and redact any PDF.',
+  },
+  {
+    q: 'Do I need an account or an app?',
+    a: 'No. Open snappdf in any modern browser, on a phone or a computer, and start. There’s nothing to sign up for and nothing to download.',
+  },
+  { q: 'Is there a size or daily limit?', a: 'No. There’s no daily limit and no size cap. Very large files are only limited by how much memory your device has.' },
+  {
+    q: 'Does it work offline?',
+    a: 'Yes. After your first visit snappdf keeps itself on your device, so it opens and works with no internet. Try it: turn on airplane mode and keep going. You can also add it to your home screen or install it from your browser, like an app.',
+  },
+  {
+    q: 'Can I install it, like an app?',
+    a: 'Yes. On Android, open the ⋮ menu in Chrome and tap Install app (or Add to Home screen). On iPhone, tap the Share button in Safari, then Add to Home Screen. Either way you get a real icon that opens full-screen and keeps working offline.',
+  },
+  {
+    q: 'What happens to my files when I’m done?',
+    a: 'They stay in your browser tab while you work, even if you switch between tools. Refresh or close the tab and they’re gone, so download your result before you leave.',
+  },
+  { q: 'Can I contribute?', a: 'Please do. Issues and pull requests are welcome on GitHub.' },
+];
+
 const LANDING: PageMeta = {
   path: '/',
-  title: 'Free PDF Tools: Merge, Split, Sign & Convert PDFs · snappdf',
+  title: 'snappdf: Free Online PDF Tools and PDF Converter, No Upload',
   description:
-    'Free PDF tools that run in your browser. Image to PDF, merge, split and sign PDFs, PDF to Word and more. No uploads, no watermarks, no sign-up.',
-  heading: 'Free PDF tools that never upload your files',
+    'Free PDF tools online: Word to PDF, PDF to Word, compress, merge, split, sign and redact PDFs, and images to PDF. No sign-up, no watermarks, nothing uploaded.',
+  heading: 'Free online PDF tools that never upload your files',
 };
 
 const ALL_TOOLS: PageMeta = {
   path: '/app',
-  title: 'All Free PDF Tools · snappdf',
+  title: 'All Free PDF Tools: Convert, Compress, Merge and Edit · snappdf',
   description:
-    'Every snappdf tool in one place: image to PDF, merge, split and sign PDFs, PDF to Word, text to PDF, and CSV or JSON to Excel. Free, and nothing is uploaded.',
+    'Every free snappdf tool: Word to PDF, PDF to Word, image and text to PDF, compress, merge, split, sign and redact PDFs, plus CSV or JSON to Excel. Nothing is uploaded.',
   heading: 'All PDF tools',
 };
 
@@ -363,8 +394,22 @@ export function structuredData(page: PageMeta) {
     ];
   } else if (page === LANDING) {
     graph = [
-      { '@type': 'WebSite', name: 'snappdf', url, description: page.description, inLanguage: 'en' },
-      { ...app('snappdf', url, page.description), featureList: TOOLS.map((t) => t.name) },
+      { '@type': 'WebSite', '@id': `${SITE_URL}/#website`, name: 'snappdf', alternateName: ALSO_KNOWN_AS, url, description: page.description, inLanguage: 'en', publisher: { '@id': `${SITE_URL}/#organization` } },
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: 'snappdf',
+        alternateName: ALSO_KNOWN_AS,
+        url,
+        logo: `${SITE_URL}/icon-512.png`,
+        sameAs: [GITHUB],
+        founder: { '@type': 'Person', ...AUTHOR },
+      },
+      { ...app('snappdf', url, page.description), alternateName: ALSO_KNOWN_AS, featureList: TOOLS.map((t) => `${t.name}: ${t.description}`) },
+      {
+        '@type': 'FAQPage',
+        mainEntity: LANDING_FAQS.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+      },
     ];
   } else if (page === ALL_TOOLS) {
     graph = [
