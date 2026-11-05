@@ -69,6 +69,8 @@ function seo(): Plugin {
   return {
     name: 'snappdf-seo',
     enforce: 'post',
+    // not for the ssr build of the pages, which has no index.html
+    apply: (_, env) => !env.isSsrBuild,
     transformIndexHtml(html, ctx) {
       // builds do every page in generateBundle, while developing fill in the page being opened
       if (!ctx.server) return html;
@@ -101,7 +103,7 @@ function offline(): Plugin {
   let publicDir = '';
   return {
     name: 'snappdf-offline',
-    apply: 'build',
+    apply: (_, env) => env.command === 'build' && !env.isSsrBuild,
     enforce: 'post',
     configResolved(config) {
       publicDir = config.publicDir;
