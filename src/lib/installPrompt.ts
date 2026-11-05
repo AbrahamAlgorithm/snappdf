@@ -6,11 +6,13 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 function isStandalone() {
+  // pages rendered at build time have no window, and aren't an installed app
+  if (typeof window === 'undefined') return false;
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 }
 
 function isIOS() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
 // Android/Chrome fire beforeinstallprompt so we can show our own "Install app" button.

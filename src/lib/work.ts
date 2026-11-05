@@ -35,5 +35,9 @@ export function useToolsInProgress() {
       return () => listeners.delete(listener);
     },
     () => inProgress,
+    // pages rendered ahead of time, at build, have nothing open
+    () => NOTHING,
   );
 }
+
+const NOTHING: ToolId[] = [];
