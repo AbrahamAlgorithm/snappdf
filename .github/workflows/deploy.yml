@@ -78,3 +78,16 @@ jobs:
             --cpu 1 \
             --memory 256Mi \
             --set-secrets RESEND_API_KEY=snappdf-resend-api-key:latest,REPORT_TO=snappdf-report-to:latest
+
+      # tells bing, and the other search engines that share indexnow, that every page in the sitemap may have changed,
+      # so they crawl it soon. the key is public on purpose, it's served at /1f6a05244dd6c440b4322ea6d22d0113.txt. a failure here never fails a deploy
+      - name: Tell search engines about the new pages
+        continue-on-error: true
+        env:
+          SITE: https://snappdf.abrahamalgorithm.tech
+          INDEXNOW_KEY: 1f6a05244dd6c440b4322ea6d22d0113
+        run: |
+          urls=$(curl -fsS "$SITE/sitemap.xml" | grep -o '<loc>[^<]*' | sed 's/<loc>//' | jq -R . | jq -sc .)
+          curl -fsS -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -d "{\"host\":\"${SITE#https://}\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"$SITE/$INDEXNOW_KEY.txt\",\"urlList\":$urls}"
