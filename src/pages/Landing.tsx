@@ -1,11 +1,12 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Crop, Download, ImagePlus, RotateCw, Trash2 } from 'lucide-react';
 import { GitHubStarButton } from '@/components/GitHubStarButton';
 import { SiteFooter, SiteNav } from '@/components/site';
 import { PrivacyChip, ToolIcon } from '@/components/toolkit';
-import { APP_HREF } from '@/lib/router';
-import { getTool, GITHUB_URL, WHATS_NEW } from '@/lib/site';
+import { APP_HREF, toolHref } from '@/lib/router';
+import { LANDING_FAQS } from '@/lib/seo';
+import { getTool, GITHUB_URL, TOOL_GROUPS, TOOLS, WHATS_NEW } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { FileBar } from '@/pages/landing/FileBar';
 import { PrivacyShowcase } from '@/pages/landing/PrivacyShowcase';
@@ -233,7 +234,7 @@ function Hero() {
           transition={{ duration: 0.8, delay: 0.3, ease: EASE }}
           className="mx-auto mt-6 max-w-[400px] text-balance sm:mt-10 text-[20px] font-[440] leading-[26px] text-ink/60 md:max-w-none"
         >
-          <span className="md:block">Everything you need to edit, convert, and manage PDFs.</span>{' '}
+          <span className="md:block">Convert, compress, merge, sign and edit PDFs for free.</span>{' '}
           <span className="md:block">Fast, private, and watermark-free.</span>
         </motion.p>
 
@@ -258,39 +259,21 @@ function Hero() {
   );
 }
 
-// faq
-const FAQS: { q: string; a: ReactNode }[] = [
-  { q: 'Is snappdf really free?', a: 'Yes. No trials, no watermarks, no premium tier. It’s open source, so it stays that way.' },
-  { q: 'Are my files uploaded anywhere?', a: 'No. Every tool runs inside your browser, so your files never leave your device.' },
-  {
-    q: 'Does it work offline?',
-    a: 'Yes. After your first visit snappdf keeps itself on your device, so it opens and works with no internet. Try it: turn on airplane mode and keep going. You can also add it to your home screen or install it from your browser, like an app.',
-  },
-  {
-    q: 'Can I install it, like an app?',
-    a: 'Yes. On Android, open the ⋮ menu in Chrome and tap Install app (or Add to Home screen). On iPhone, tap the Share button in Safari, then Add to Home Screen. Either way you get a real icon that opens full-screen and keeps working offline.',
-  },
-  {
-    q: 'What happens to my files when I’m done?',
-    a: 'They stay in your browser tab while you work, even if you switch between tools. Refresh or close the tab and they’re gone, so download your result before you leave.',
-  },
-  {
-    q: 'Which file types are supported?',
-    a: 'Images (JPG, PNG, HEIC, WEBP, GIF, BMP) to PDF, Word (.docx) to PDF, PDF to Word, CSV or JSON to Excel, JSON to CSV, and plain text to PDF. You can also merge, split, sign and compress any PDF.',
-  },
-  {
-    q: 'Can I contribute?',
-    a: (
-      <>
-        Please do. Issues and pull requests are welcome on{' '}
-        <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="font-medium text-ink underline decoration-ink/30 underline-offset-4">
-          GitHub
-        </a>
-        .
-      </>
-    ),
-  },
-];
+// faq. the words are in lib/seo, which gives them to search engines too
+function Answer({ text }: { text: string }) {
+  // the one answer with a link in it
+  const [before, after] = text.split('GitHub');
+  if (after === undefined) return <>{text}</>;
+  return (
+    <>
+      {before}
+      <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="font-medium text-ink underline decoration-ink/30 underline-offset-4">
+        GitHub
+      </a>
+      {after}
+    </>
+  );
+}
 
 function Faq() {
   const [open, setOpen] = useState<number | null>(0);
@@ -303,13 +286,14 @@ function Faq() {
         </Reveal>
         <Reveal delay={0.08} className="lg:col-span-7">
           <div className="divide-y divide-line border-y border-line">
-            {FAQS.map((item, i) => {
+            {LANDING_FAQS.map((item, i) => {
               const isOpen = open === i;
               return (
                 <div key={item.q}>
                   <button
                     onClick={() => setOpen(isOpen ? null : i)}
                     aria-expanded={isOpen}
+                    aria-controls={`faq-${i}`}
                     className="flex w-full items-center justify-between gap-6 py-6 text-left text-[17px] font-semibold tracking-[-0.02em]"
                   >
                     {item.q}
@@ -318,24 +302,61 @@ function Faq() {
                       <span className={cn('absolute left-1/2 top-0 h-3.5 w-[1.5px] -translate-x-1/2 rounded-full bg-ink transition-transform duration-300', isOpen && 'scale-y-0')} />
                     </span>
                   </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: EASE }}
-                        className="overflow-hidden"
-                      >
-                        <p className="max-w-xl pb-6 text-[15px] leading-relaxed text-ink/60">{item.a}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* closed answers stay in the page, folded away, so search engines read every one */}
+                  <div
+                    id={`faq-${i}`}
+                    className={cn('grid transition-[grid-template-rows,opacity] duration-300', isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
+                  >
+                    <div className="overflow-hidden" inert={!isOpen}>
+                      <p className="max-w-xl pb-6 text-[15px] leading-relaxed text-ink/60">
+                        <Answer text={item.a} />
+                      </p>
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// every tool by name, with what it does, so each one is a click from the front page
+function AllTools() {
+  return (
+    <section aria-labelledby="all-tools-title" className="pb-24 sm:pb-36">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Reveal>
+          <h2 id="all-tools-title" className="text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[52px]">
+            Every tool, free
+          </h2>
+          <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink/60">
+            PDF converters and editors that work in your browser, on a phone or a computer. No sign-up, no watermarks, nothing uploaded.
+          </p>
+        </Reveal>
+        {TOOL_GROUPS.map((group) => (
+          <Reveal key={group} className="mt-10">
+            <h3 className="text-[14px] font-medium text-ink/50">{group}</h3>
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {TOOLS.filter((tool) => tool.group === group).map((tool) => (
+                <li key={tool.id}>
+                  <a
+                    href={toolHref(tool.id)}
+                    className="flex h-full items-center gap-4 rounded-[22px] border border-line bg-card p-4 transition-[border-color,box-shadow] hover:border-ink/15 hover:shadow-[0_10px_30px_-14px_rgba(0,0,0,0.22)] sm:flex-col sm:items-start sm:p-5"
+                  >
+                    <ToolIcon tool={tool} />
+                    <span className="min-w-0">
+                      <span className="block text-[16px] font-semibold tracking-[-0.02em] sm:mt-1">{tool.name}</span>
+                      <span className="mt-1 block text-[14px] leading-snug text-ink/55">{tool.description}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        ))}
       </div>
     </section>
   );
@@ -357,6 +378,7 @@ export default function Landing() {
           <FileBar />
           <ToolShowcase />
           <PrivacyShowcase />
+          <AllTools />
           <Faq />
         </main>
       </div>
