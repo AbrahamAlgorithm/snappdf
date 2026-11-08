@@ -38,8 +38,10 @@ export default function Tools() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-6 sm:pt-16">
-        <h1 className="text-[32px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">What do you need to do?</h1>
-        <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink/60 sm:text-[17px]">Choose a tool to get started.</p>
+        <h1 className="text-[32px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">Free PDF tools</h1>
+        <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink/60 sm:text-[17px]">
+          What do you need to do? Every tool is free, works in your browser and never uploads your files.
+        </p>
 
         {TOOL_GROUPS.map((group) => (
           <section key={group} aria-label={group} className="mt-10 sm:mt-14">
